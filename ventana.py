@@ -4,6 +4,7 @@ import customtkinter as ctk
 from DeepgramTranscriber import DeepgramTranscriber
 from OpenRouterClient import OpenRouterClient
 from tkinter import filedialog, messagebox
+import tkinter as tk
 import platform
 import subprocess
 
@@ -27,6 +28,22 @@ class AsisVozApp(ctk.CTk):
         # Marco principal
         main_frame = ctk.CTkFrame(self, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # Crear barra de menú
+        menubar = tk.Menu(self)
+
+        # Crear un menú desplegable
+        menu_opciones = tk.Menu(menubar, tearoff=0)
+        menu_opciones.add_command(label="Botón1", command=self._accion_boton1)
+        menu_opciones.add_command(label="Botón2", command=self._accion_boton2)
+        menu_opciones.add_separator()
+        #menu_opciones.add_command(label="Salir", command=self.quit)
+
+        # Añadir el menú desplegable a la barra de menú
+        menubar.add_cascade(label="Opciones", menu=menu_opciones)
+
+        # Configurar la ventana para usar esta barra de menú
+        self.config(menu=menubar)
 
         # ─── LEFT (Audio + Transcripción) ───────────────────────────────────
         left_frame = ctk.CTkFrame(main_frame, width=320, fg_color="transparent")
@@ -127,6 +144,7 @@ class AsisVozApp(ctk.CTk):
             fg_color="white",
             corner_radius=10
         )
+
         self.chat_area.pack(padx=10, pady=(0, 10), fill="both", expand=True)
         # Ahora sólo definimos UNA columna (columna 0)
         self.chat_area.grid_columnconfigure(0, weight=1)
@@ -139,6 +157,7 @@ class AsisVozApp(ctk.CTk):
         # Campo de texto
         self.entry_message = ctk.CTkEntry(
             frame_entry,
+            text_color="gray",
             placeholder_text="Escribe un mensaje..."
         )
         self.entry_message.pack(side="left", fill="x", expand=True)
@@ -196,6 +215,17 @@ class AsisVozApp(ctk.CTk):
             filetypes=tipos_permitidos
         )
 
+        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.mp4')
+        archivos_validos = [ruta for ruta in rutas if ruta.lower().endswith(extensiones_validas)]
+
+        if not archivos_validos:
+                messagebox.showerror("Error", "Por favor selecciona solo archivos de audio válidos.")
+        else:
+                # Aquí haces lo que necesitas con los archivos
+                print("Archivos seleccionados:")
+                for archivo in archivos_validos:
+                    print(archivo)
+
         if not rutas:
             return
 
@@ -234,6 +264,12 @@ class AsisVozApp(ctk.CTk):
     def _eliminar_archivo(self, ruta):
         self.selected_files.remove(ruta)
         self._actualizar_lista_archivos()
+
+    def _accion_boton1(self):
+        messagebox.showinfo("Botón1", "Has presionado Botón1")
+
+    def _accion_boton2(self):
+        messagebox.showinfo("Botón2", "Has presionado Botón2")
 
     # ──────────────────────────────────────────────────────────────────────
     # Lógica de transcripción en segundo plano (Deepgram)
@@ -316,6 +352,7 @@ class AsisVozApp(ctk.CTk):
 
         hilo = threading.Thread(target=self._worker_llm, args=(texto,))
         hilo.daemon = True
+        self._mensaje_cargando_id = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
         hilo.start()
 
     def _worker_llm(self, prompt: str):
@@ -343,7 +380,12 @@ class AsisVozApp(ctk.CTk):
 
         pdf_path = filedialog.askopenfilename(
             title="Selecciona el archivo PDF para preguntar",
-            filetypes=[("PDF files", "*.pdf")]
+            filetypes=[
+            ("Documentos PDF y Word", "*.pdf *.doc *.docx"),
+            ("Archivos PDF", "*.pdf"),
+            ("Archivos Word", "*.doc *.docx"),
+            ("Todos los archivos", "*.*")
+            ]
         )
 
         if not pdf_path:
@@ -355,6 +397,7 @@ class AsisVozApp(ctk.CTk):
 
         hilo = threading.Thread(target=self._worker_llm_pdf, args=(pdf_path, prompt))
         hilo.daemon = True
+        self._mensaje_cargando_id = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
         hilo.start()
 
     def _worker_llm_pdf(self, pdf_path: str, prompt: str):
@@ -370,10 +413,16 @@ class AsisVozApp(ctk.CTk):
         self.after(0, self._update_chat_with_response, respuesta_texto)
 
     def _update_chat_with_response(self, respuesta: str):
-        """
-        Inserta la burbuja del bot con el texto recibido.
-        """
-        self._agregar_mensaje(respuesta, remitente="bot")
+     
+        if hasattr(self, "_mensaje_cargando_id") and self._mensaje_cargando_id:
+        # Busca el label hijo del frame para cambiar el texto
+            for widget in self._mensaje_cargando_id.winfo_children():
+                if isinstance(widget, ctk.CTkLabel):
+                    widget.configure(text=respuesta)
+                    break
+            self._mensaje_cargando_id = None
+        else:
+            self._agregar_mensaje(respuesta, remitente="bot")
 
     def _agregar_mensaje(self, texto, remitente="usuario"):
         """
@@ -412,7 +461,7 @@ class AsisVozApp(ctk.CTk):
 
         # Forzamos el scroll al fondo
         self.after(50, lambda: self.chat_area._parent_canvas.yview_moveto(1.0))
-
+        return frame_burbuja
 
 if __name__ == "__main__":
     # Reemplaza "TU_API_KEY_AQUI" con tu API key real de OpenRouter:
