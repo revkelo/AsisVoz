@@ -4,18 +4,19 @@ import customtkinter as ctk
 from DeepgramTranscriber import DeepgramTranscriber
 from OpenRouterClient import OpenRouterClient
 from tkinter import filedialog, messagebox
+from tkinterdnd2 import DND_FILES, TkinterDnD
 import tkinter as tk
 import platform
 import subprocess
 
-# Configuración global de CustomTkinter
-ctk.set_appearance_mode("light")
-ctk.set_default_color_theme("blue")
 
 
-class AsisVozApp(ctk.CTk):
+
+class AsisVozApp(TkinterDnD.Tk):
     def __init__(self, openrouter_api_key: str):
         super().__init__()
+        ctk.set_appearance_mode("light")
+        ctk.set_default_color_theme("blue")
 
         self.title("AsisVoz")
         self.geometry("1000x650")
@@ -182,9 +183,6 @@ class AsisVozApp(ctk.CTk):
         ).pack(side="left", padx=(5, 0))
 
     def _crear_area_upload(self, contenedor):
-        """
-        Crea el área donde el usuario puede arrastrar o buscar archivos de audio.
-        """
         ctk.CTkLabel(
             contenedor,
             text="🎵",
@@ -208,14 +206,37 @@ class AsisVozApp(ctk.CTk):
             command=self._on_browse_files
         ).pack()
 
+        # Habilitar drop de archivos
+        contenedor.drop_target_register(DND_FILES)
+        contenedor.dnd_bind('<<Drop>>', self._on_drop_files)
+
+    def _on_drop_files(self, event):
+        archivos = self.tk.splitlist(event.data)
+        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
+
+        archivos_validos = [archivo for archivo in archivos if archivo.lower().endswith(extensiones_validas)]
+
+        if not archivos_validos:
+            messagebox.showerror("Error", "Por favor selecciona solo archivos de audio válidos.")
+            return
+
+        if len(archivos_validos) > 5:
+            messagebox.showerror("Error", "Solo puedes seleccionar hasta 5 archivos.")
+            return
+
+        self.selected_files = list(archivos_validos)
+        self._actualizar_lista_archivos()
+
+
+
     def _on_browse_files(self):
-        tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.mp4")]
+        tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus"),]
         rutas = filedialog.askopenfilenames(
             title="Selecciona archivos de audio",
             filetypes=tipos_permitidos
         )
 
-        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.mp4')
+        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
         archivos_validos = [ruta for ruta in rutas if ruta.lower().endswith(extensiones_validas)]
 
         if not archivos_validos:
