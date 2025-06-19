@@ -8,6 +8,7 @@ from tkinterdnd2 import DND_FILES, TkinterDnD
 import tkinter as tk
 import platform
 import subprocess
+from PIL import Image, ImageTk
 
 
 
@@ -22,6 +23,9 @@ class AsisVozApp(TkinterDnD.Tk):
         self.geometry("1000x650")
         self.resizable(False, False)
         self.selected_files = []
+        self._gif_frames = []
+        self._gif_size = (200, 200)
+        gif = Image.open("./cargando.gif")
 
         # Cliente de OpenRouter (tiene preguntar_texto y preguntar_con_pdf)
         self.router_client = OpenRouterClient(openrouter_api_key)
@@ -145,6 +149,33 @@ class AsisVozApp(TkinterDnD.Tk):
             fg_color="white",
             corner_radius=10
         )
+        
+        try:
+            index = 0
+            while True:
+                # 1) copiar, 2) convertir a RGBA, 3) escalar al tamaño deseado
+                frame = (
+                    gif.copy()
+                       .convert("RGBA")
+                       .resize(self._gif_size, Image.LANCZOS)
+                )
+                # 4) crear el PhotoImage y guardarlo
+                self._gif_frames.append(ImageTk.PhotoImage(frame))
+                index += 1
+                gif.seek(index)
+        except EOFError:
+            pass
+        
+        self.lbl_gif = ctk.CTkLabel(
+            left_frame,
+            image=None,
+            width=self._gif_size[0],
+            height=self._gif_size[1],
+            fg_color="transparent",
+            text=""
+        )
+        self.lbl_gif.place_forget()
+
 
         self.chat_area.pack(padx=10, pady=(0, 10), fill="both", expand=True)
         # Ahora sólo definimos UNA columna (columna 0)
@@ -181,6 +212,25 @@ class AsisVozApp(TkinterDnD.Tk):
             height=32,
             command=self._on_send_with_pdf
         ).pack(side="left", padx=(5, 0))
+        
+    def _start_gif(self):
+        # en lugar de pack(), lo hacemos visible con place again
+        self.lbl_gif.place(relx=0.5, y=400, anchor="n")
+        self._gif_index = 0
+        self._animate_gif()
+
+    def _animate_gif(self):
+        frame = self._gif_frames[self._gif_index]
+        self.lbl_gif.configure(image=frame)
+        self._gif_index = (self._gif_index + 1) % len(self._gif_frames)
+        self._gif_job = self.after(100, self._animate_gif)  # 10 fps
+
+    def _stop_gif(self):
+        if hasattr(self, "_gif_job"):
+            self.after_cancel(self._gif_job)
+        # ocultar con place_forget()
+        self.lbl_gif.place_forget()
+
 
     def _crear_area_upload(self, contenedor):
         ctk.CTkLabel(
@@ -324,17 +374,17 @@ class AsisVozApp(TkinterDnD.Tk):
 
         def tarea():
             try:
+                self.after(0, self._start_gif)
                 transcriptor = DeepgramTranscriber()
                 ruta = self.selected_files[0]
-                print("Ruta del archivo:", ruta)
                 transcriptor.procesar_audio(ruta)
-                self.after(0, lambda: self._transcripcion_exitosa())
+                self.after(0, self._transcripcion_exitosa)
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Error", str(e)))
             finally:
+                self.after(0, self._stop_gif)
                 self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
-
-        threading.Thread(target=tarea).start()
+        threading.Thread(target=tarea, daemon=True).start()
 
     def _transcripcion_exitosa(self):
         messagebox.showinfo("Éxito", "Transcripción completada.")
