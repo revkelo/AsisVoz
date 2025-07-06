@@ -4,19 +4,21 @@ import customtkinter as ctk
 from DeepgramTranscriber import DeepgramTranscriber
 from OpenRouterClient import OpenRouterClient
 from tkinter import filedialog, messagebox
+from tkinterdnd2 import DND_FILES, TkinterDnD
 import tkinter as tk
 import platform
 import subprocess
 from PIL import Image, ImageTk
 
-# Configuración global de CustomTkinter
-ctk.set_appearance_mode("light")
-ctk.set_default_color_theme("blue")
 
 
-class AsisVozApp(ctk.CTk):
+
+class AsisVozApp(TkinterDnD.Tk):
     def __init__(self, openrouter_api_key: str):
         super().__init__()
+        ctk.set_appearance_mode("light")
+        ctk.set_default_color_theme("blue")
+        self.pdf_path = None
 
         self.title("AsisVoz")
         self.geometry("1000x650")
@@ -194,23 +196,70 @@ class AsisVozApp(ctk.CTk):
         self.entry_message.pack(side="left", fill="x", expand=True)
         self.entry_message.bind("<Return>", lambda event: self._on_send_message())
 
-        # Botón “→” para enviar solo texto
-        ctk.CTkButton(
+        # Switch para activar o desactivar uso de PDF
+        self.use_pdf_switch = ctk.CTkSwitch(
             frame_entry,
-            text="→",
-            width=40,
-            height=32,
-            command=self._on_send_message
-        ).pack(side="left", padx=(5, 0))
+            text="Usar PDF",
+            command=self._on_switch_toggle
+        )
+        self.use_pdf_switch.pack(side="left", padx=(5, 10))
 
-        # Botón “PDF” para enviar texto + preguntar con PDF
+        # Botón de clip (inicialmente oculto)
+        self.clip_button = ctk.CTkButton(
+            frame_entry,
+            text="📎",
+            width=20,
+            height=32,
+            command=self._on_select_pdf
+        )
+        self.clip_button.pack(side="left", padx=(5, 10))
+        self.clip_button.pack_forget()  # oculto al inicio
+
+
+        # Botón de enviar unificado
         ctk.CTkButton(
             frame_entry,
-            text="PDF",
-            width=40,
+            text="Enviar",
+            width=60,
             height=32,
-            command=self._on_send_with_pdf
-        ).pack(side="left", padx=(5, 0))
+            command=self._on_send_based_on_switch
+        ).pack(side="right")
+
+        # Actualizar binding del <Return>
+        self.entry_message.bind("<Return>", lambda event: self._on_send_based_on_switch())
+
+
+    def _on_select_pdf(self):
+        ruta = filedialog.askopenfilename(
+        title="Selecciona un archivo PDF",
+        filetypes=[("Archivos PDF", "*.pdf")]
+    )
+        if ruta:
+            self.pdf_path = ruta
+            messagebox.showinfo("Archivo cargado", f"PDF seleccionado:\n{os.path.basename(ruta)}")
+        else:
+            self.pdf_path = None
+
+    def _on_switch_toggle(self):
+        if self.use_pdf_switch.get() == 1:
+            self.clip_button.pack(side="left", padx=(5, 0))
+        else:
+            self.clip_button.pack_forget()
+            self.pdf_path = None  # Borramos el archivo si el switch se apaga
+
+    def _on_send_based_on_switch(self):
+        if self.use_pdf_switch.get() == 1:
+            if not hasattr(self, "pdf_path") or not self.pdf_path:
+                messagebox.showwarning("PDF no seleccionado", "Por favor selecciona un archivo PDF antes de enviar.")
+                return
+            self._on_send_with_pdf()
+        else:
+            self._on_send_message()
+
+    
+    
+
+
         
     def _start_gif(self):
         # en lugar de pack(), lo hacemos visible con place again
@@ -232,9 +281,6 @@ class AsisVozApp(ctk.CTk):
 
 
     def _crear_area_upload(self, contenedor):
-        """
-        Crea el área donde el usuario puede arrastrar o buscar archivos de audio.
-        """
         ctk.CTkLabel(
             contenedor,
             text="🎵",
@@ -258,14 +304,37 @@ class AsisVozApp(ctk.CTk):
             command=self._on_browse_files
         ).pack()
 
+        # Habilitar drop de archivos
+        contenedor.drop_target_register(DND_FILES)
+        contenedor.dnd_bind('<<Drop>>', self._on_drop_files)
+
+    def _on_drop_files(self, event):
+        archivos = self.tk.splitlist(event.data)
+        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
+
+        archivos_validos = [archivo for archivo in archivos if archivo.lower().endswith(extensiones_validas)]
+
+        if not archivos_validos:
+            messagebox.showerror("Error", "Por favor selecciona solo archivos de audio válidos.")
+            return
+
+        if len(archivos_validos) > 5:
+            messagebox.showerror("Error", "Solo puedes seleccionar hasta 5 archivos.")
+            return
+
+        self.selected_files = list(archivos_validos)
+        self._actualizar_lista_archivos()
+
+
+
     def _on_browse_files(self):
-        tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.mp4")]
+        tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus"),]
         rutas = filedialog.askopenfilenames(
             title="Selecciona archivos de audio",
             filetypes=tipos_permitidos
         )
 
-        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.mp4')
+        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
         archivos_validos = [ruta for ruta in rutas if ruta.lower().endswith(extensiones_validas)]
 
         if not archivos_validos:
@@ -420,25 +489,16 @@ class AsisVozApp(ctk.CTk):
 
     def _on_send_with_pdf(self):
         """
-        Envía el contenido de la caja de texto junto a un PDF.
-        1. Abre un diálogo para seleccionar PDF.
-        2. Llama a preguntar_con_pdf(pdf_path, prompt).
+        Envía el contenido de la caja de texto junto a un PDF previamente seleccionado.
         """
         prompt = self.entry_message.get().strip()
         if prompt == "":
             return
 
-        pdf_path = filedialog.askopenfilename(
-            title="Selecciona el archivo PDF para preguntar",
-            filetypes=[
-            ("Documentos PDF y Word", "*.pdf *.doc *.docx"),
-            ("Archivos PDF", "*.pdf"),
-            ("Archivos Word", "*.doc *.docx"),
-            ("Todos los archivos", "*.*")
-            ]
-        )
+        pdf_path = self.pdf_path  # Usar el PDF previamente seleccionado con el botón 📎
 
         if not pdf_path:
+            messagebox.showwarning("PDF no seleccionado", "Por favor selecciona un archivo con el botón 📎.")
             return
 
         texto_usuario = f"{prompt}\n(Consulta con PDF: {os.path.basename(pdf_path)})"
@@ -449,6 +509,7 @@ class AsisVozApp(ctk.CTk):
         hilo.daemon = True
         self._mensaje_cargando_id = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
         hilo.start()
+
 
     def _worker_llm_pdf(self, pdf_path: str, prompt: str):
         """
