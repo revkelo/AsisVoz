@@ -213,6 +213,34 @@ class AsisVozApp(TkinterDnD.Tk):
             command=self._on_send_with_pdf
         ).pack(side="left", padx=(5, 0))
         
+    def _mostrar_aviso_banner(self, mensaje, color="#d1f0d1", duracion=3000):
+        aviso = ctk.CTkFrame(self, fg_color=color, corner_radius=8)
+        aviso.place(relx=0.5, rely=0.95, anchor="s")  # Posición inferior centrada
+
+        ctk.CTkLabel(
+            aviso,
+            text=mensaje,
+            text_color="black",
+            font=ctk.CTkFont(size=12)
+        ).pack(padx=10, pady=5)
+
+        # Eliminar el aviso después de X milisegundos
+        self.after(duracion, aviso.destroy)
+
+    def _mostrar_aviso_banner_eliminar(self, mensaje, color="#f16046", duracion=3000):
+        aviso = ctk.CTkFrame(self, fg_color=color, corner_radius=8)
+        aviso.place(relx=0.5, rely=0.95, anchor="s")  # Posición inferior centrada
+
+        ctk.CTkLabel(
+            aviso,
+            text=mensaje,
+            text_color="black",
+            font=ctk.CTkFont(size=12)
+        ).pack(padx=10, pady=5)
+
+        # Eliminar el aviso después de X milisegundos
+        self.after(duracion, aviso.destroy)
+    
     def _start_gif(self):
         # en lugar de pack(), lo hacemos visible con place again
         self.lbl_gif.place(relx=0.5, y=400, anchor="n")
@@ -307,6 +335,8 @@ class AsisVozApp(TkinterDnD.Tk):
         self.selected_files = list(rutas)
         self._actualizar_lista_archivos()
         print("Archivos seleccionados:", self.selected_files)
+        self._mostrar_aviso_banner("✔ Archivos cargados correctamente")
+
 
     def _actualizar_lista_archivos(self):
         for widget in self.archivos_frame.winfo_children():
@@ -330,11 +360,14 @@ class AsisVozApp(TkinterDnD.Tk):
                 fg_color="#d9534f",
                 hover_color="#c9302c",
                 command=lambda r=ruta: self._eliminar_archivo(r)
+                
             ).pack(side="right", padx=5)
 
     def _eliminar_archivo(self, ruta):
+        self._mostrar_aviso_banner_eliminar("❌ Archivo eliminado correctamente")
         self.selected_files.remove(ruta)
         self._actualizar_lista_archivos()
+        
 
     def _accion_boton1(self):
         messagebox.showinfo("Botón1", "Has presionado Botón1")
@@ -371,6 +404,8 @@ class AsisVozApp(TkinterDnD.Tk):
             return
 
         self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
+        
+
 
         def tarea():
             try:
@@ -378,6 +413,7 @@ class AsisVozApp(TkinterDnD.Tk):
                 transcriptor = DeepgramTranscriber()
                 ruta = self.selected_files[0]
                 transcriptor.procesar_audio(ruta)
+                self._mostrar_aviso_banner(f"🎧 Transcribiendo: {os.path.basename(ruta)}")
                 self.after(0, self._transcripcion_exitosa)
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Error", str(e)))
@@ -388,6 +424,8 @@ class AsisVozApp(TkinterDnD.Tk):
 
     def _transcripcion_exitosa(self):
         messagebox.showinfo("Éxito", "Transcripción completada.")
+        self._mostrar_aviso_banner("✅ Transcripción terminada")
+
         self._agregar_mensaje("✔ Transcripción completada", remitente="bot")
         self.btn_abrir_transcripcion.pack(pady=(5, 0))
 
@@ -533,6 +571,8 @@ class AsisVozApp(TkinterDnD.Tk):
         # Forzamos el scroll al fondo
         self.after(50, lambda: self.chat_area._parent_canvas.yview_moveto(1.0))
         return frame_burbuja
+
+    
 
 if __name__ == "__main__":
     # Reemplaza "TU_API_KEY_AQUI" con tu API key real de OpenRouter:
