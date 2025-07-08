@@ -10,11 +10,24 @@ import platform
 import subprocess
 from PIL import Image, ImageTk
 
+import json
+
+CONFIG_PATH = "./config.json"
+
+def cargar_config():
+    if not os.path.isfile(CONFIG_PATH):
+        return {"openrouter_api_key": "", "deepgram_api_key": ""}
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def guardar_config(config):
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
 
 
 
 class AsisVozApp(TkinterDnD.Tk):
-    def __init__(self, openrouter_api_key: str):
+    def __init__(self):
         super().__init__()
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
@@ -26,11 +39,16 @@ class AsisVozApp(TkinterDnD.Tk):
         self.selected_files = []
         self._gif_frames = []
         self._gif_size = (200, 200)
-        gif = Image.open("./cargando.gif")
+        gif = Image.open("./media/cargando.gif")
 
         # Cliente de OpenRouter (tiene preguntar_texto y preguntar_con_pdf)
-        self.router_client = OpenRouterClient(openrouter_api_key)
+        self.config_data = cargar_config()
 
+        self.openrouter_api_key = self.config_data.get("openrouter_api_key", "")
+        self.deepgram_api_key = self.config_data.get("deepgram_api_key", "")
+
+        self.router_client = OpenRouterClient(self.openrouter_api_key)
+        self.transcriptor = DeepgramTranscriber(self.deepgram_api_key)
         # Marco principal
         main_frame = ctk.CTkFrame(self, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -423,9 +441,9 @@ class AsisVozApp(TkinterDnD.Tk):
         def tarea():
             try:
                 self.after(0, self._start_gif)
-                transcriptor = DeepgramTranscriber()
+              
                 ruta = self.selected_files[0]
-                transcriptor.procesar_audio(ruta)
+                self.transcriptor.procesar_audio(ruta)
                 self.after(0, self._transcripcion_exitosa)
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Error", str(e)))
@@ -440,8 +458,8 @@ class AsisVozApp(TkinterDnD.Tk):
         self.btn_abrir_transcripcion.pack(pady=(5, 0))
 
     def _on_open_transcripcion(self):
-        transcriptor = DeepgramTranscriber()
-        ruta_pdf = transcriptor.obtener_ruta_pdf("transcripcion.pdf")
+       
+        ruta_pdf = self.transcriptor.obtener_ruta_pdf("transcripcion.pdf")
 
         sistema = platform.system()
         print(f"Sistema operativo detectado: {sistema}")
@@ -576,6 +594,6 @@ class AsisVozApp(TkinterDnD.Tk):
 
 if __name__ == "__main__":
     # Reemplaza "TU_API_KEY_AQUI" con tu API key real de OpenRouter:
-    API_KEY_OPENROUTER = "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"
-    app = AsisVozApp(API_KEY_OPENROUTER)
+
+    app = AsisVozApp()
     app.mainloop()

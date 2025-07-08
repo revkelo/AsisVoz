@@ -6,7 +6,7 @@ from deepgram import DeepgramClient, PrerecordedOptions
 from fpdf import FPDF
 
 class DeepgramTranscriber:
-    def __init__(self, api_key="9e231f7aaa5b8724a3cd852ef37774878750c957"):
+    def __init__(self, api_key: str):
         if not api_key:
             raise ValueError("API key de Deepgram requerida.")
         print("[DeepgramTranscriber] Inicializando cliente Deepgram…")
