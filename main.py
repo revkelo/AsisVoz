@@ -1,402 +1,581 @@
 import os
-import sys
-import json
-import mimetypes
-import time
-import base64
-import re
+import threading
+import customtkinter as ctk
+from DeepgramTranscriber import DeepgramTranscriber
+from OpenRouterClient import OpenRouterClient
+from tkinter import filedialog, messagebox
+from tkinterdnd2 import DND_FILES, TkinterDnD
 import tkinter as tk
-from tkinter import filedialog
-
-import requests
-from deepgram import DeepgramClient, PrerecordedOptions
-from fpdf import FPDF
-
-# ----------------------------
-# CONFIGURACIONES DE API
-# ----------------------------
-DEEPGRAM_API_KEY    = "9e231f7aaa5b8724a3cd852ef37774878750c957"
-# Token de proyecto para consultar balances (ejemplo tomado de tu snippet)
-DEEPGRAM_PROJECT_ID = "71615eba-db4b-4be4-9d57-f0775a3c9311"
+import platform
+import subprocess
+from PIL import Image, ImageTk
 
 
-OPENROUTER_API_KEY  = "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"
-OPENROUTER_URL      = "https://openrouter.ai/api/v1/chat/completions"
-
-# ----------------------------
-# FUNCIONES AUXILIARES DE DEEPGRAM
-# ----------------------------
-def obtener_balance_deepgram() -> None:
-    """
-    Llama a GET /v1/projects/:project_id/balances
-    y muestra sólo el amount y la unidad.
-    """
-    url = f"https://api.deepgram.com/v1/projects/{DEEPGRAM_PROJECT_ID}/balances"
-    headers = {
-        "Authorization": f"Token {DEEPGRAM_API_KEY}"
-    }
-    try:
-        resp = requests.get(url, headers=headers, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
-
-        # Extraer amount y units del primer balance
-        balances = data.get("balances", [])
-        if balances:
-            amount = balances[0].get("amount")
-            units  = balances[0].get("units")
-            print(f"{amount} {units}")
-        else:
-            print("No se encontró ningún balance disponible.")
-    except requests.RequestException as e:
-        print(f"❌ Error al obtener balance de Deepgram: {e}")
 
 
-def seleccionar_archivo_audio() -> str:
-    """
-    Abre un diálogo (tkinter) para que el usuario seleccione un archivo de audio.
-    Devuelve la ruta completa, o None si cancela.
-    """
-    root = tk.Tk()
-    root.withdraw()
-    filetypes = [
-        ("Archivos de audio", "*.wav *.mp3 *.m4a *.flac *.ogg"),
-        ("Todos los archivos", "*.*"),
-    ]
-    ruta = filedialog.askopenfilename(
-        title="Selecciona el archivo de audio",
-        filetypes=filetypes
-    )
-    root.destroy()
-    return ruta or None
+class AsisVozApp(TkinterDnD.Tk):
+    def __init__(self, openrouter_api_key: str):
+        super().__init__()
+        ctk.set_appearance_mode("light")
+        ctk.set_default_color_theme("blue")
+        self.pdf_path = None
 
-def verificar_extension_audio(ruta_audio: str) -> None:
-    """
-    Muestra un aviso si la extensión de audio es poco común (opcional).
-    """
-    ext = os.path.splitext(ruta_audio)[1].lower()
-    if ext not in [".wav", ".mp3", ".m4a", ".flac", ".ogg"]:
-        print(f"⚠️  Atención: la extensión '{ext}' podría no ser totalmente compatible con Deepgram.")
+        self.title("AsisVoz")
+        self.geometry("1000x650")
+        self.resizable(False, False)
+        self.selected_files = []
+        self._gif_frames = []
+        self._gif_size = (200, 200)
+        gif = Image.open("./cargando.gif")
 
-def segundos_a_mmss(segundos: float) -> str:
-    """
-    Convierte segundos (float) a formato "MM:SS".
-    """
-    total = int(segundos)
-    minutos = total // 60
-    seg = total % 60
-    return f"{minutos:02d}:{seg:02d}"
+        # Cliente de OpenRouter (tiene preguntar_texto y preguntar_con_pdf)
+        self.router_client = OpenRouterClient(openrouter_api_key)
 
-def transcribir_con_deepgram(ruta_audio: str) -> object:
-    """
-    Envía el archivo de audio a Deepgram de forma síncrona, solicitando diarization y smart_format.
-    Devuelve el objeto de respuesta de Deepgram (que contiene canales, alternativas, etc.).
-    Lanza excepción si algo falla.
-    """
-    if not DEEPGRAM_API_KEY:
-        raise RuntimeError("La clave API de Deepgram no está definida.")
+        # Marco principal
+        main_frame = ctk.CTkFrame(self, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-    try:
-        deepgram = DeepgramClient(DEEPGRAM_API_KEY)
-    except Exception as e:
-        raise RuntimeError(f"Error al inicializar DeepgramClient: {e}")
+        # Crear barra de menú
+        menubar = tk.Menu(self)
 
-    try:
-        with open(ruta_audio, "rb") as f:
-            audio_bytes = f.read()
-    except FileNotFoundError:
-        raise RuntimeError(f"ERROR: No existe el archivo: {ruta_audio}")
+        # Crear un menú desplegable
+        menu_opciones = tk.Menu(menubar, tearoff=0)
+        menu_opciones.add_command(label="Botón1", command=self._accion_boton1)
+        menu_opciones.add_command(label="Botón2", command=self._accion_boton2)
+        menu_opciones.add_separator()
+        #menu_opciones.add_command(label="Salir", command=self.quit)
 
-    mime_type, _ = mimetypes.guess_type(ruta_audio)
-    mimetype = mime_type or "application/octet-stream"
+        # Añadir el menú desplegable a la barra de menú
+        menubar.add_cascade(label="Opciones", menu=menu_opciones)
 
-    source = {
-        "buffer": audio_bytes,
-        "mimetype": mimetype
-    }
+        # Configurar la ventana para usar esta barra de menú
+        self.config(menu=menubar)
 
-    opciones = PrerecordedOptions(
-        model="whisper",
-        language="es",
-        punctuate=True,
-        diarize=True,
-        smart_format=True,
-        paragraphs=True
-    )
+        # ─── LEFT (Audio + Transcripción) ───────────────────────────────────
+        left_frame = ctk.CTkFrame(main_frame, width=320, fg_color="transparent")
+        left_frame.pack(side="left", anchor="n", padx=(0, 30), fill="y")
 
-    try:
-        respuesta = deepgram.listen.rest.v("1").transcribe_file(
-            source=source,
-            options=opciones,
-            timeout=900
+        # Título “Audio”
+        ctk.CTkLabel(
+            left_frame,
+            text="Audio",
+            font=ctk.CTkFont(size=18, weight="bold")
+        ).pack(anchor="w")
+
+        # Subtítulo
+        ctk.CTkLabel(
+            left_frame,
+            text="Agrega tus archivos de audio aquí",
+            font=ctk.CTkFont(size=12),
+            wraplength=300,
+            justify="left"
+        ).pack(anchor="w", pady=(0, 15))
+
+        # Área punteada / contenedor para arrastrar o buscar
+        upload_border = ctk.CTkFrame(
+            left_frame,
+            width=300,
+            height=160,
+            border_width=1,
+            border_color="#aaaaaa"
         )
-    except Exception as e:
-        raise RuntimeError(f"ERROR durante la petición a Deepgram:\n{e}")
+        upload_border.pack(pady=(0, 10))
+        upload_border.pack_propagate(False)
+        self._crear_area_upload(upload_border)
 
-    return respuesta
+        # Lista de archivos seleccionados
+        self.archivos_frame = ctk.CTkFrame(left_frame, fg_color="white", corner_radius=10)
+        self.archivos_frame.pack(pady=(5, 20), fill="x")
 
-def extraer_transcripcion_con_diarization(respuesta) -> str:
-    """
-    A partir del objeto devuelto por Deepgram (con diarization y smart_format),
-    arma un string formateado que incluya párrafos separados por orador y las marcas de tiempo (MM:SS) al inicio.
-    """
-    texto_formateado = ""
-    try:
-        canal0 = respuesta.results.channels[0]
-        alt    = canal0.alternatives[0]
+        # Botón “Transcribir”
+        self.btn_transcribir = ctk.CTkButton(
+            left_frame,
+            text="Transcribir",
+            width=200,
+            height=35,
+            command=self._on_transcribir
+        )
+        self.btn_transcribir.pack(pady=(10, 5))
 
-        # 1) Intentamos usar smart_format_results (puede incluir timestamps en cada párrafo)
-        smart = getattr(alt, "smart_format_results", None)
-        if smart and isinstance(smart, dict) and "paragraphs" in smart:
-            for par in smart["paragraphs"]:
-                speaker_id = par.get("speaker", 0)
-                texto      = par.get("text", "").strip()
-                inicio     = par.get("start", None)
-                if texto:
-                    ts = segundos_a_mmss(inicio) if inicio is not None else "00:00"
-                    texto_formateado += f"[{ts}] Speaker {speaker_id}: {texto}\n\n"
-            return texto_formateado.rstrip("\n")
+        # Botón “Abrir transcripción” (oculto inicialmente)
+        self.btn_abrir_transcripcion = ctk.CTkButton(
+            left_frame,
+            text="Abrir transcripción generada",
+            width=200,
+            height=35,
+            command=self._on_open_transcripcion
+        )
+        self.btn_abrir_transcripcion.pack(pady=(5, 0))
+        self.btn_abrir_transcripcion.pack_forget()
 
-        # 2) Si no hay smart_format_results, agrupamos palabra a palabra
-        palabras = getattr(alt, "words", None)
-        if not palabras:
-            texto_formateado = getattr(alt, "transcript", "").strip()
-            return texto_formateado
+        # ─── RIGHT (Chatbot) ────────────────────────────────────────────────
+        right_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        right_frame.pack(side="left", fill="both", expand=True)
 
-        speaker_actual   = palabras[0].speaker
-        inicio_actual    = palabras[0].start
-        linea = f"[{segundos_a_mmss(inicio_actual)}] Speaker {speaker_actual}: "
-        for w in palabras:
-            if w.speaker != speaker_actual:
-                texto_formateado += linea.strip() + "\n\n"
-                speaker_actual = w.speaker
-                inicio_actual  = w.start
-                linea = f"[{segundos_a_mmss(inicio_actual)}] Speaker {speaker_actual}: "
-            linea += w.word + " "
-        texto_formateado += linea.strip()
-        return texto_formateado
+        chat_frame = ctk.CTkFrame(
+            right_frame,
+            width=620,            # ancho total del área de chat
+            height=580,
+            border_width=1,
+            border_color="#aaaaaa",
+            corner_radius=15
+        )
+        chat_frame.pack(anchor="n", padx=10, pady=10, fill="y")
+        chat_frame.pack_propagate(False)
 
-    except Exception as e:
+        # Icono y título del chatbot
+        ctk.CTkLabel(
+            chat_frame,
+            text="🤖",
+            font=ctk.CTkFont(size=36)
+        ).pack(pady=(20, 5))
+        ctk.CTkLabel(
+            chat_frame,
+            text="Chatbot",
+            font=ctk.CTkFont(size=16, weight="bold")
+        ).pack()
+        ctk.CTkLabel(
+            chat_frame,
+            text="¡Hola! ¿Cómo puedo ayudarte hoy?",
+            font=ctk.CTkFont(size=12),
+            wraplength=580,        # cabrá en 580 px
+            justify="center"
+        ).pack(pady=(5, 10))
+
+        # Área scrollable para los mensajes (usa width=620)
+        self.chat_area = ctk.CTkScrollableFrame(
+            chat_frame,
+            width=620,
+            height=360,
+            fg_color="white",
+            corner_radius=10
+        )
+        
         try:
-            detalle = json.dumps(respuesta, default=lambda o: o.__dict__, indent=2, ensure_ascii=False)
-        except:
-            detalle = str(respuesta)
-        raise RuntimeError("ERROR al extraer diarization:\n" + detalle)
+            index = 0
+            while True:
+                # 1) copiar, 2) convertir a RGBA, 3) escalar al tamaño deseado
+                frame = (
+                    gif.copy()
+                       .convert("RGBA")
+                       .resize(self._gif_size, Image.LANCZOS)
+                )
+                # 4) crear el PhotoImage y guardarlo
+                self._gif_frames.append(ImageTk.PhotoImage(frame))
+                index += 1
+                gif.seek(index)
+        except EOFError:
+            pass
+        
+        self.lbl_gif = ctk.CTkLabel(
+            left_frame,
+            image=None,
+            width=self._gif_size[0],
+            height=self._gif_size[1],
+            fg_color="transparent",
+            text=""
+        )
+        self.lbl_gif.place_forget()
 
-def guardar_texto_en_archivo(texto: str, ruta_salida: str) -> None:
-    """
-    Guarda el 'texto' completo en el archivo de texto indicado.
-    """
-    with open(ruta_salida, "w", encoding="utf-8") as f:
-        f.write(texto)
 
-def generar_pdf_desde_texto(texto: str, ruta_salida: str) -> None:
-    """
-    Genera un PDF sencillo que contiene todo el 'texto'
-    y lo guarda en 'ruta_salida', usando fuente más pequeña (10 pt) y line height reducido (6 mm).
-    """
-    pdf = FPDF(orientation="P", unit="mm", format="A4")
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_page()
+        self.chat_area.pack(padx=10, pady=(0, 10), fill="both", expand=True)
+        # Ahora sólo definimos UNA columna (columna 0)
+        self.chat_area.grid_columnconfigure(0, weight=1)
+        self.chat_row = 0
 
-    pdf.set_font("Arial", size=10)
-    pdf.multi_cell(0, 6, texto)
-    pdf.output(ruta_salida)
+        # Marco inferior con entrada de texto + botones de envío
+        frame_entry = ctk.CTkFrame(chat_frame, fg_color="transparent")
+        frame_entry.pack(padx=10, pady=(0, 15), fill="x")
 
-# ----------------------------
-# FUNCIONES AUXILIARES DE DEEPSEEK (OPENROUTER)
-# ----------------------------
-def seleccionar_archivo_pdf() -> str:
-    """
-    Abre un diálogo para que el usuario seleccione un archivo PDF.
-    Devuelve la ruta completa, o None si cancela.
-    """
-    root = tk.Tk()
-    root.withdraw()
-    filetypes = [("Archivos PDF", "*.pdf"), ("Todos los archivos", "*.*")]
-    ruta = filedialog.askopenfilename(
-        title="Selecciona el archivo PDF",
-        filetypes=filetypes
+        # Campo de texto
+        self.entry_message = ctk.CTkEntry(
+            frame_entry,
+            text_color="gray",
+            placeholder_text="Escribe un mensaje..."
+        )
+        self.entry_message.pack(side="left", fill="x", expand=True)
+        self.entry_message.bind("<Return>", lambda event: self._on_send_message())
+
+        # Switch para activar o desactivar uso de PDF
+        self.use_pdf_switch = ctk.CTkSwitch(
+            frame_entry,
+            text="Usar PDF",
+            command=self._on_switch_toggle
+        )
+        self.use_pdf_switch.pack(side="left", padx=(5, 10))
+
+        # Botón de clip (inicialmente oculto)
+        self.clip_button = ctk.CTkButton(
+            frame_entry,
+            text="📎",
+            width=20,
+            height=32,
+            command=self._on_select_pdf
+        )
+        self.clip_button.pack(side="left", padx=(5, 10))
+        self.clip_button.pack_forget()  # oculto al inicio
+
+
+        # Botón de enviar unificado
+        ctk.CTkButton(
+            frame_entry,
+            text="Enviar",
+            width=60,
+            height=32,
+            command=self._on_send_based_on_switch
+        ).pack(side="right")
+
+        # Actualizar binding del <Return>
+        self.entry_message.bind("<Return>", lambda event: self._on_send_based_on_switch())
+
+
+    def _on_select_pdf(self):
+        ruta = filedialog.askopenfilename(
+        title="Selecciona un archivo PDF",
+        filetypes=[("Archivos PDF", "*.pdf")]
     )
-    root.destroy()
-    return ruta or None
+        if ruta:
+            self.pdf_path = ruta
+            messagebox.showinfo("Archivo cargado", f"PDF seleccionado:\n{os.path.basename(ruta)}")
+        else:
+            self.pdf_path = None
 
-def encode_pdf_to_base64(pdf_path: str) -> str:
+    def _on_switch_toggle(self):
+        if self.use_pdf_switch.get() == 1:
+            self.clip_button.pack(side="left", padx=(5, 0))
+        else:
+            self.clip_button.pack_forget()
+            self.pdf_path = None  # Borramos el archivo si el switch se apaga
+
+    def _on_send_based_on_switch(self):
+        if self.use_pdf_switch.get() == 1:
+            if not hasattr(self, "pdf_path") or not self.pdf_path:
+                messagebox.showwarning("PDF no seleccionado", "Por favor selecciona un archivo PDF antes de enviar.")
+                return
+            self._on_send_with_pdf()
+        else:
+            self._on_send_message()
+
+    
+    
+
+
+        
+    def _start_gif(self):
+        # en lugar de pack(), lo hacemos visible con place again
+        self.lbl_gif.place(relx=0.5, y=400, anchor="n")
+        self._gif_index = 0
+        self._animate_gif()
+
+    def _animate_gif(self):
+        frame = self._gif_frames[self._gif_index]
+        self.lbl_gif.configure(image=frame)
+        self._gif_index = (self._gif_index + 1) % len(self._gif_frames)
+        self._gif_job = self.after(100, self._animate_gif)  # 10 fps
+
+    def _stop_gif(self):
+        if hasattr(self, "_gif_job"):
+            self.after_cancel(self._gif_job)
+        # ocultar con place_forget()
+        self.lbl_gif.place_forget()
+
+
+    def _crear_area_upload(self, contenedor):
+        ctk.CTkLabel(
+            contenedor,
+            text="🎵",
+            font=ctk.CTkFont(size=32)
+        ).pack(pady=(10, 5))
+        ctk.CTkLabel(
+            contenedor,
+            text="Arrastra tus archivos de audio para comenzar la carga",
+            font=ctk.CTkFont(size=11),
+            wraplength=280,
+            justify="center"
+        ).pack()
+        ctk.CTkLabel(
+            contenedor,
+            text="O",
+            font=ctk.CTkFont(size=11)
+        ).pack(pady=5)
+        ctk.CTkButton(
+            contenedor,
+            text="Buscar archivos de audio",
+            command=self._on_browse_files
+        ).pack()
+
+        # Habilitar drop de archivos
+        contenedor.drop_target_register(DND_FILES)
+        contenedor.dnd_bind('<<Drop>>', self._on_drop_files)
+
+    def _on_drop_files(self, event):
+        archivos = self.tk.splitlist(event.data)
+        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
+
+        archivos_validos = [archivo for archivo in archivos if archivo.lower().endswith(extensiones_validas)]
+
+        if not archivos_validos:
+            messagebox.showerror("Error", "Por favor selecciona solo archivos de audio válidos.")
+            return
+
+        if len(archivos_validos) > 5:
+            messagebox.showerror("Error", "Solo puedes seleccionar hasta 5 archivos.")
+            return
+
+        self.selected_files = list(archivos_validos)
+        self._actualizar_lista_archivos()
+
+
+
+    def _on_browse_files(self):
+        tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus"),]
+        rutas = filedialog.askopenfilenames(
+            title="Selecciona archivos de audio",
+            filetypes=tipos_permitidos
+        )
+
+        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
+        archivos_validos = [ruta for ruta in rutas if ruta.lower().endswith(extensiones_validas)]
+
+        if not archivos_validos:
+                messagebox.showerror("Error", "Por favor selecciona solo archivos de audio válidos.")
+        else:
+                # Aquí haces lo que necesitas con los archivos
+                print("Archivos seleccionados:")
+                for archivo in archivos_validos:
+                    print(archivo)
+
+        if not rutas:
+            return
+
+        if len(rutas) > 5:
+            messagebox.showerror("Error", "Solo puedes seleccionar hasta 5 archivos.")
+            return
+
+        self.selected_files = list(rutas)
+        self._actualizar_lista_archivos()
+        print("Archivos seleccionados:", self.selected_files)
+
+    def _actualizar_lista_archivos(self):
+        for widget in self.archivos_frame.winfo_children():
+            widget.destroy()
+
+        for ruta in self.selected_files:
+            nombre = os.path.basename(ruta)
+            fila = ctk.CTkFrame(self.archivos_frame, fg_color="transparent")
+            fila.pack(anchor="w", fill="x", padx=5, pady=2)
+
+            ctk.CTkLabel(
+                fila,
+                text=nombre,
+                anchor="w",
+                wraplength=250
+            ).pack(side="left", padx=(5, 0), fill="x", expand=True)
+            ctk.CTkButton(
+                fila,
+                text="❌",
+                width=30,
+                fg_color="#d9534f",
+                hover_color="#c9302c",
+                command=lambda r=ruta: self._eliminar_archivo(r)
+            ).pack(side="right", padx=5)
+
+    def _eliminar_archivo(self, ruta):
+        self.selected_files.remove(ruta)
+        self._actualizar_lista_archivos()
+
+    def _accion_boton1(self):
+        messagebox.showinfo("Botón1", "Has presionado Botón1")
+
+    def _accion_boton2(self):
+        messagebox.showinfo("Botón2", "Has presionado Botón2")
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Lógica de transcripción en segundo plano (Deepgram)
+    # ──────────────────────────────────────────────────────────────────────
     """
-    Codifica un PDF en Base64 para enviarlo a OpenRouter.
-    """
-    with open(pdf_path, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
+    def _on_transcribir(self):
+        if not self.selected_files:
+            messagebox.showinfo("Sin archivos", "Primero selecciona archivos.")
+            return
 
-def limpiar_markdown(texto: str) -> str:
-    """
-    Elimina los asteriscos usados para negritas (o cualquier '*' suelto)
-    para que el texto quede sin formato Markdown.
-    """
-    texto = re.sub(r"\*\*(.*?)\*\*", r"\1", texto)
-    return texto.replace("*", "")
+        self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
+        ruta = self.selected_files[0]
+        print("[AsisVozApp] (HILO PRINCIPAL) Ruta del archivo a transcribir:", ruta)
 
-def preguntar_a_deepseek(pdf_base64: str, pregunta: str) -> tuple[str, float]:
-    """
-    Envía 'pregunta' y el PDF (en Base64) al modelo Deepseek vía OpenRouter.
-    Devuelve una tupla (respuesta_limpia, tiempo_en_segundos).
-    """
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": pregunta},
-                {
-                    "type": "file",
-                    "file": {
-                        "filename": "transcripcion.pdf",
-                        "file_data": f"data:application/pdf;base64,{pdf_base64}"
-                    }
-                }
-            ]
-        }
-    ]
-    plugins = [
-        {
-            "id": "file-parser",
-            "pdf": {"engine": "pdf-text"}
-        }
-    ]
-    payload = {
-        "model": "deepseek/deepseek-r1:free",
-        "messages": messages,
-        "plugins": plugins
-    }
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
-    }
+        hilo = threading.Thread(target=self._worker_transcribir, args=(ruta,))
+        hilo.daemon = True
+        hilo.start()
+        
+    """   
+        
 
-    start_time = time.time()
-    respuesta = requests.post(OPENROUTER_URL, headers=headers, json=payload)
-    elapsed = time.time() - start_time
+    
+ 
 
-    if respuesta.status_code != 200:
-        raise RuntimeError(f"Error OpenRouter (status {respuesta.status_code}): {respuesta.text}")
+    def _on_transcribir(self):
+        if not self.selected_files:
+            messagebox.showinfo("Sin archivos", "Primero selecciona archivos.")
+            return
 
-    data = respuesta.json()
-    try:
-        content_raw = data["choices"][0]["message"]["content"].strip()
-    except (KeyError, IndexError):
-        detalle = json.dumps(data, indent=2, ensure_ascii=False)
-        raise RuntimeError("Respuesta inesperada de Deepseek:\n" + detalle)
+        self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
 
-    content_limpio = limpiar_markdown(content_raw)
-    return content_limpio, elapsed
+        def tarea():
+            try:
+                self.after(0, self._start_gif)
+                transcriptor = DeepgramTranscriber()
+                ruta = self.selected_files[0]
+                transcriptor.procesar_audio(ruta)
+                self.after(0, self._transcripcion_exitosa)
+            except Exception as e:
+                self.after(0, lambda: messagebox.showerror("Error", str(e)))
+            finally:
+                self.after(0, self._stop_gif)
+                self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
+        threading.Thread(target=tarea, daemon=True).start()
 
-# ----------------------------
-# FLUJO PRINCIPAL UNIFICADO
-# ----------------------------
-def main():
-    # 0) Mostrar balance de créditos antes de empezar
+    def _transcripcion_exitosa(self):
+        messagebox.showinfo("Éxito", "Transcripción completada.")
+        self._agregar_mensaje("✔ Transcripción completada", remitente="bot")
+        self.btn_abrir_transcripcion.pack(pady=(5, 0))
 
+    def _on_open_transcripcion(self):
+        transcriptor = DeepgramTranscriber()
+        ruta_pdf = transcriptor.obtener_ruta_pdf("transcripcion.pdf")
 
-    print("\n=== 1) Audio → Deepgram (diarization + smart_format + timestamps) ===\n")
+        sistema = platform.system()
+        print(f"Sistema operativo detectado: {sistema}")
 
-    # 1) Seleccionar archivo de audio
-    print("1) Selecciona el archivo de audio…")
-    ruta_audio = seleccionar_archivo_audio()
-    if not ruta_audio:
-        print("No se seleccionó ningún archivo. Saliendo.")
-        sys.exit(0)
-    if not os.path.isfile(ruta_audio):
-        print(f"ERROR: El archivo '{ruta_audio}' no existe. Saliendo.")
-        sys.exit(1)
+        if sistema == "Windows":
+            os.startfile(ruta_pdf)
+        elif sistema == "Darwin":
+            subprocess.call(["open", ruta_pdf])
+        else:
+            subprocess.call(["xdg-open", ruta_pdf])
 
-    verificar_extension_audio(ruta_audio)
+        messagebox.showinfo("Transcripción", "Aquí podrías abrir el archivo generado.")
 
-    # 2) Transcribir con Deepgram
-    print("\n2) Enviando audio a Deepgram para transcripción…")
-    t_inicio_trans = time.time()
-    try:
-        respuesta_deep = transcribir_con_deepgram(ruta_audio)
-    except Exception as e:
-        print(f"\n❌ Error durante la transcripción:\n{e}\n")
-        sys.exit(1)
-    t_fin_trans = time.time()
-    duracion_trans = t_fin_trans - t_inicio_trans
-    print(f"   ► Tiempo de transcripción Deepgram: {duracion_trans:.2f} segundos.\n")
+    # ──────────────────────────────────────────────────────────────────────
+    # Lógica del chatbot (OpenRouter) en hilos para no bloquear la GUI
+    # ──────────────────────────────────────────────────────────────────────
+    def _on_send_message(self):
+        """
+        Envía el contenido de la caja de texto como “solo texto” (sin PDF).
+        """
+        texto = self.entry_message.get().strip()
+        if texto == "":
+            return
 
-    # 3) Extraer texto con diarization
-    print("--- Armando transcripción con diarization (inicio) ---")
-    t_inicio_diar = time.time()
-    try:
-        transcripcion_txt = extraer_transcripcion_con_diarization(respuesta_deep)
-    except Exception as e:
-        print(f"\n❌ Error al procesar diarization:\n{e}\n")
-        sys.exit(1)
-    t_fin_diar = time.time()
-    duracion_diar = t_fin_diar - t_inicio_diar
-    print(transcripcion_txt)
-    print("--- Armando transcripción con diarization (fin) ---")
-    print(f"   ► Tiempo de procesamiento de diarización: {duracion_diar:.2f} segundos.\n")
+        self.entry_message.delete(0, "end")
+        self._agregar_mensaje(texto, remitente="usuario")
 
-    # 4) Guardar transcripción en .txt
-    nombre_txt = "transcripcion.txt"
-    print(f"3) Guardando transcripción de texto en '{nombre_txt}'…")
-    t_inicio_guardado_txt = time.time()
-    try:
-        guardar_texto_en_archivo(transcripcion_txt, nombre_txt)
-    except Exception as e:
-        print(f"\n❌ Error guardando archivo de texto:\n{e}\n")
-        sys.exit(1)
-    t_fin_guardado_txt = time.time()
-    duracion_guardado_txt = t_fin_guardado_txt - t_inicio_guardado_txt
-    print(f"   ► Archivo de texto generado exitosamente en {duracion_guardado_txt:.2f} segundos.\n")
+        hilo = threading.Thread(target=self._worker_llm, args=(texto,))
+        hilo.daemon = True
+        self._mensaje_cargando_id = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
+        hilo.start()
 
-    # 5) Generar PDF a partir del mismo texto
-    nombre_pdf = "transcripcion.pdf"
-    print(f"4) Generando PDF en '{nombre_pdf}'…")
-    t_inicio_pdf = time.time()
-    try:
-        generar_pdf_desde_texto(transcripcion_txt, nombre_pdf)
-    except Exception as e:
-        print(f"\n❌ Error generando PDF:\n{e}\n")
-        sys.exit(1)
-    t_fin_pdf = time.time()
-    duracion_pdf = t_fin_pdf - t_inicio_pdf
-    print(f"   ► PDF generado exitosamente en {duracion_pdf:.2f} segundos.\n")
-
-    tiempo_total = time.time() - t_inicio_trans
-    print(f"¡Proceso de transcripción completado! Tiempo total: {tiempo_total:.2f} segundos.\n")
-    print(f"Revisa '{nombre_txt}' y '{nombre_pdf}'.\n")
-    obtener_balance_deepgram()
-    # ----------------------------
-    # 6) Codificar PDF y comenzar bucle de preguntas a Deepseek
-    # ----------------------------
-    print("\n=== 2) Ahora puedes hacer preguntas sobre el PDF generado ===\n")
-    try:
-        pdf_base64 = encode_pdf_to_base64(nombre_pdf)
-    except Exception as e:
-        print(f"❌ Error al codificar PDF:\n{e}\n")
-        sys.exit(1)
-
-    print("Escribe 'salir' o 'exit' para terminar.\n")
-    while True:
-        pregunta = input("Pregunta: ").strip()
-        if pregunta.lower() in {"salir", "exit"}:
-            print("\n¡Hasta luego!")
-            break
-        if not pregunta:
-            print("→ Debes escribir algo o 'salir'.")
-            continue
-
-        print("\n   ► Enviando consulta a Deepseek…")
+    def _worker_llm(self, prompt: str):
+        """
+        Este método se ejecuta en un hilo aparte para no bloquear la GUI.
+        Llama a preguntar_texto(prompt) y, al recibir la respuesta,
+        vuelve al hilo principal para actualizar el chat.
+        """
         try:
-            respuesta_limpia, tiempo = preguntar_a_deepseek(pdf_base64, pregunta)
+            respuesta_texto, _ = self.router_client.preguntar_texto(prompt)
         except Exception as e:
-            print(f"\n❌ Error al consultar Deepseek:\n{e}\n")
-            continue
+            respuesta_texto = f"Error al conectar con OpenRouter:\n{e}"
 
-        print("\nRespuesta:\n")
-        print(respuesta_limpia)
-        print(f"\n→ Tiempo de respuesta: {tiempo:.2f} segundos")
-        print("\n" + "-"*60 + "\n")
+        self.after(0, self._update_chat_with_response, respuesta_texto)
+
+    def _on_send_with_pdf(self):
+        """
+        Envía el contenido de la caja de texto junto a un PDF previamente seleccionado.
+        """
+        prompt = self.entry_message.get().strip()
+        if prompt == "":
+            return
+
+        pdf_path = self.pdf_path  # Usar el PDF previamente seleccionado con el botón 📎
+
+        if not pdf_path:
+            messagebox.showwarning("PDF no seleccionado", "Por favor selecciona un archivo con el botón 📎.")
+            return
+
+        texto_usuario = f"{prompt}\n(Consulta con PDF: {os.path.basename(pdf_path)})"
+        self._agregar_mensaje(texto_usuario, remitente="usuario")
+        self.entry_message.delete(0, "end")
+
+        hilo = threading.Thread(target=self._worker_llm_pdf, args=(pdf_path, prompt))
+        hilo.daemon = True
+        self._mensaje_cargando_id = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
+        hilo.start()
+
+
+    def _worker_llm_pdf(self, pdf_path: str, prompt: str):
+        """
+        Este método se ejecuta en un hilo aparte. Llama a preguntar_con_pdf
+        y luego regresa al hilo principal para mostrar la respuesta.
+        """
+        try:
+            respuesta_texto, _ = self.router_client.preguntar_con_pdf(pdf_path, prompt)
+        except Exception as e:
+            respuesta_texto = f"Error al procesar PDF con OpenRouter:\n{e}"
+
+        self.after(0, self._update_chat_with_response, respuesta_texto)
+
+    def _update_chat_with_response(self, respuesta: str):
+     
+        if hasattr(self, "_mensaje_cargando_id") and self._mensaje_cargando_id:
+        # Busca el label hijo del frame para cambiar el texto
+            for widget in self._mensaje_cargando_id.winfo_children():
+                if isinstance(widget, ctk.CTkLabel):
+                    widget.configure(text=respuesta)
+                    break
+            self._mensaje_cargando_id = None
+        else:
+            self._agregar_mensaje(respuesta, remitente="bot")
+
+    def _agregar_mensaje(self, texto, remitente="usuario"):
+        """
+        Crea una burbuja de chat con ancho fijo (560 px) y altura automática:
+        - Si remitente="usuario", se alinea a la derecha con fondo azul claro.
+        - Si remitente="bot", se alinea a la izquierda con fondo gris claro.
+        Luego fuerza el scroll para que siempre se vea el último mensaje.
+        """
+        bubble_fg = "#d9eaff" if remitente == "usuario" else "#f1f1f1"
+        text_anchor = "e" if remitente == "usuario" else "w"
+
+        # Creamos la burbuja con ancho fijo de 560 px
+        frame_burbuja = ctk.CTkFrame(self.chat_area, fg_color=bubble_fg, corner_radius=10)
+        frame_burbuja.configure(width=560)  # ancho máximo fijo
+        # NO llamamos a pack_propagate(False): permitimos que la altura crezca al contenido.
+
+        # Etiqueta interna con wraplength = 540 px
+        label = ctk.CTkLabel(
+            frame_burbuja,
+            text=texto,
+            wraplength=300,  # texto se quiebra antes de llegar a 540 px
+            justify="left",
+            font=ctk.CTkFont(size=12)
+        )
+        label.pack(padx=10, pady=5)
+
+        # Colocamos la burbuja en la fila correspondiente
+        frame_burbuja.grid(
+            row=self.chat_row,
+            column=0,
+            padx=10,
+            pady=2,
+            sticky=text_anchor  # 'e' si es usuario, 'w' si es bot
+        )
+        self.chat_row += 1
+
+        # Forzamos el scroll al fondo
+        self.after(50, lambda: self.chat_area._parent_canvas.yview_moveto(1.0))
+        return frame_burbuja
 
 if __name__ == "__main__":
-    main()
+    # Reemplaza "TU_API_KEY_AQUI" con tu API key real de OpenRouter:
+    API_KEY_OPENROUTER = "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"
+    app = AsisVozApp(API_KEY_OPENROUTER)
+    app.mainloop()
