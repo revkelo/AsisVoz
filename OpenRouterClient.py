@@ -26,6 +26,8 @@ class OpenRouterClient:
 
         payload = {
             "model": "deepseek/deepseek-r1:free",
+            #"model": "deepseek/deepseek-r1-0528-qwen3-8b",
+            #"model": "qwen/qwen3-235b-a22b:free",
             "messages": [
                 {
                     "role": "user",
@@ -109,27 +111,4 @@ class OpenRouterClient:
         return texto
 
 
-# ----------------------------
-# EJEMPLO DE USO (fuera de la GUI)
-# ----------------------------
-if __name__ == "__main__":
-    API_KEY = "TU_API_KEY"
-    cliente = OpenRouterClient(API_KEY)
 
-    # Chat normal (solo texto)
-    try:
-        respuesta_texto, tiempo_texto = cliente.preguntar_texto("¿Cómo estás hoy?")
-        print("Respuesta (texto):", respuesta_texto)
-        print(f"Tiempo empleado: {tiempo_texto:.2f} s\n")
-    except Exception as e:
-        print(f"❌ Error chat texto: {e}")
-
-    # Chat con PDF
-    PDF_PATH = "ruta/del/archivo.pdf"
-    PREGUNTA = "¿Cuál es el resumen del documento?"
-    try:
-        respuesta_pdf, tiempo_pdf = cliente.preguntar_con_pdf(PDF_PATH, PREGUNTA)
-        print("Respuesta (con PDF):", respuesta_pdf)
-        print(f"Tiempo empleado: {tiempo_pdf:.2f} s")
-    except Exception as e:
-        print(f"❌ Error chat PDF: {e}")

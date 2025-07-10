@@ -1,14 +1,16 @@
 import os
 import threading
 import customtkinter as ctk
-from DeepgramTranscriber import DeepgramTranscriber
+from xd import DeepgramPDFTranscriber
+from customtkinter import CTkImage
+
 from OpenRouterClient import OpenRouterClient
 from tkinter import filedialog, messagebox
 from tkinterdnd2 import DND_FILES, TkinterDnD
 import tkinter as tk
 import platform
 import subprocess
-from PIL import Image, ImageTk
+from PIL import Image
 
 import json
 
@@ -48,7 +50,7 @@ class AsisVozApp(TkinterDnD.Tk):
         self.deepgram_api_key = self.config_data.get("deepgram_api_key", "")
 
         self.router_client = OpenRouterClient(self.openrouter_api_key)
-        self.transcriptor = DeepgramTranscriber(self.deepgram_api_key)
+        self.transcriptor = DeepgramPDFTranscriber(self.deepgram_api_key)
         # Marco principal
         main_frame = ctk.CTkFrame(self, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -179,7 +181,8 @@ class AsisVozApp(TkinterDnD.Tk):
                        .resize(self._gif_size, Image.LANCZOS)
                 )
                 # 4) crear el PhotoImage y guardarlo
-                self._gif_frames.append(ImageTk.PhotoImage(frame))
+                self._gif_frames.append(CTkImage(light_image=frame, size=self._gif_size))
+
                 index += 1
                 gif.seek(index)
         except EOFError:
@@ -440,15 +443,15 @@ class AsisVozApp(TkinterDnD.Tk):
 
         def tarea():
             try:
-                self.after(0, self._start_gif)
+                #self.after(0, self._start_gif)
               
                 ruta = self.selected_files[0]
-                self.transcriptor.procesar_audio(ruta)
+                self.transcriptor.transcribir_audio(ruta)
                 self.after(0, self._transcripcion_exitosa)
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Error", str(e)))
             finally:
-                self.after(0, self._stop_gif)
+                #self.after(0, self._stop_gif)
                 self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
         threading.Thread(target=tarea, daemon=True).start()
 
@@ -459,8 +462,8 @@ class AsisVozApp(TkinterDnD.Tk):
 
     def _on_open_transcripcion(self):
        
-        ruta_pdf = self.transcriptor.obtener_ruta_pdf("transcripcion.pdf")
-
+        #ruta_pdf = self.transcriptor.obtener_ruta_pdf("transcripcion.pdf")
+        ruta_pdf = "transcripcion.pdf"
         sistema = platform.system()
         print(f"Sistema operativo detectado: {sistema}")
 
