@@ -1,7 +1,8 @@
 import os
 import threading
 import customtkinter as ctk
-from xd import DeepgramPDFTranscriber
+from DeepGramClient import DeepgramPDFTranscriber
+
 from customtkinter import CTkImage
 
 from OpenRouterClient import OpenRouterClient
@@ -60,8 +61,8 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Crear un menú desplegable
         menu_opciones = tk.Menu(menubar, tearoff=0)
-        menu_opciones.add_command(label="Botón1", command=self._accion_boton1)
-        menu_opciones.add_command(label="Botón2", command=self._accion_boton2)
+        menu_opciones.add_command(label="Cambiar API Key de Deepgram", command=self._cambiar_api_deepgram)
+        menu_opciones.add_command(label="Cambiar API de OpenRouter", command=self._cambiar_api_openrouter)
         menu_opciones.add_separator()
         #menu_opciones.add_command(label="Salir", command=self.quit)
 
@@ -224,19 +225,7 @@ class AsisVozApp(TkinterDnD.Tk):
             command=self._on_switch_toggle
         )
         self.use_pdf_switch.pack(side="left", padx=(5, 10))
-
-        # Botón de clip (inicialmente oculto)
-        self.clip_button = ctk.CTkButton(
-            frame_entry,
-            text="📎",
-            width=20,
-            height=32,
-            command=self._on_select_pdf
-        )
-        self.clip_button.pack(side="left", padx=(5, 10))
-        self.clip_button.pack_forget()  # oculto al inicio
-
-
+        
         # Botón de enviar unificado
         ctk.CTkButton(
             frame_entry,
@@ -244,7 +233,7 @@ class AsisVozApp(TkinterDnD.Tk):
             width=60,
             height=32,
             command=self._on_send_based_on_switch
-        ).pack(side="right")
+        ).pack(side="left")
 
         # Actualizar binding del <Return>
         self.entry_message.bind("<Return>", lambda event: self._on_send_based_on_switch())
@@ -262,26 +251,45 @@ class AsisVozApp(TkinterDnD.Tk):
             self.pdf_path = None
 
     def _on_switch_toggle(self):
-        if self.use_pdf_switch.get() == 1:
-            self.clip_button.pack(side="left", padx=(5, 0))
-        else:
-            self.clip_button.pack_forget()
-            self.pdf_path = None  # Borramos el archivo si el switch se apaga
+        if self.use_pdf_switch.get() == 0:
+            self.pdf_path = None  # limpiar si desactiva
 
     def _on_send_based_on_switch(self):
         if self.use_pdf_switch.get() == 1:
-            if not hasattr(self, "pdf_path") or not self.pdf_path:
-                messagebox.showwarning("PDF no seleccionado", "Por favor selecciona un archivo PDF antes de enviar.")
+            ruta = filedialog.askopenfilename(
+                title="Selecciona un archivo PDF",
+                filetypes=[("Archivos PDF", "*.pdf")]
+            )
+            if not ruta:
+                messagebox.showwarning("PDF no seleccionado", "No se seleccionó ningún archivo.")
                 return
+
+            self.pdf_path = ruta
             self._on_send_with_pdf()
         else:
             self._on_send_message()
 
-    
-    
+
+    def _on_switch_toggle(self):
+        if self.use_pdf_switch.get() == 0:
+            self.pdf_path = None  # limpiar si desactiva
+
+    def _on_send_based_on_switch(self):
+        if self.use_pdf_switch.get() == 1:
+            ruta = filedialog.askopenfilename(
+                title="Selecciona un archivo PDF",
+                filetypes=[("Archivos PDF", "*.pdf")]
+            )
+            if not ruta:
+                messagebox.showwarning("PDF no seleccionado", "No se seleccionó ningún archivo.")
+                return
+
+            self.pdf_path = ruta
+            self._on_send_with_pdf()
+        else:
+            self._on_send_message()
 
 
-        
     def _start_gif(self):
         # en lugar de pack(), lo hacemos visible con place again
         self.lbl_gif.place(relx=0.5, y=400, anchor="n")
@@ -405,15 +413,108 @@ class AsisVozApp(TkinterDnD.Tk):
         self.selected_files.remove(ruta)
         self._actualizar_lista_archivos()
 
-    def _accion_boton1(self):
-        messagebox.showinfo("Botón1", "Has presionado Botón1")
+    def _cambiar_api_deepgram(self):
+        ventana = tk.Toplevel()
+        ventana.title("Cambiar API Key de Deepgram")
+        ventana.geometry("400x150")
+        ventana.resizable(False, False)
 
-    def _accion_boton2(self):
-        messagebox.showinfo("Botón2", "Has presionado Botón2")
+        # Centrar ventana
+        ventana.update_idletasks()
+        ancho, alto = 400, 150
+        x = (ventana.winfo_screenwidth() // 2) - (ancho // 2)
+        y = (ventana.winfo_screenheight() // 2) - (alto // 2)
+        ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
+
+        # Instrucciones
+        tk.Label(ventana, text="Selecciona un archivo .txt con tu API key:").pack(pady=(20, 10))
+
+        def seleccionar_archivo():
+            ruta = filedialog.askopenfilename(
+                title="Selecciona un archivo de texto",
+                filetypes=[("Archivos de texto", "*.txt")]
+            )
+
+            if not ruta:
+                return
+
+            try:
+                with open(ruta, "r", encoding="utf-8") as f:
+                    nueva_key = f.read().strip()
+
+                if not nueva_key:
+                    messagebox.showerror("Error", "El archivo está vacío.", parent=ventana)
+                    return
+
+                self.deepgram_api_key = nueva_key
+                self.transcriptor = DeepgramTranscriber(self.deepgram_api_key)
+                self.config_data["deepgram_api_key"] = nueva_key
+                guardar_config(self.config_data)
+
+                messagebox.showinfo("Éxito", "API key de Deepgram actualizada.", parent=ventana)
+                ventana.destroy()
+
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo leer el archivo:\n{e}", parent=ventana)
+
+        # Botón para seleccionar archivo
+        tk.Button(ventana, text="Seleccionar archivo", command=seleccionar_archivo).pack(pady=(0, 20))
+
+
+    def _cambiar_api_openrouter(self):
+        ventana = tk.Toplevel()
+        ventana.title("Cambiar API Key de OpenRouter")
+        ventana.geometry("400x150")
+        ventana.resizable(False, False)
+
+        # Centrar ventana
+        ventana.update_idletasks()
+        ancho, alto = 400, 150
+        x = (ventana.winfo_screenwidth() // 2) - (ancho // 2)
+        y = (ventana.winfo_screenheight() // 2) - (alto // 2)
+        ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
+
+        tk.Label(ventana, text="Selecciona un archivo .txt con tu API key:").pack(pady=(20, 10))
+
+        def seleccionar_archivo():
+            ruta = filedialog.askopenfilename(
+                title="Selecciona un archivo de texto",
+                filetypes=[("Archivos de texto", "*.txt")]
+            )
+
+            if not ruta:
+                return
+
+            try:
+                with open(ruta, "r", encoding="utf-8") as f:
+                    nueva_key = f.read().strip()
+
+                if not nueva_key:
+                    messagebox.showerror("Error", "El archivo está vacío.", parent=ventana)
+                    return
+
+                # Validación opcional de API key (por ejemplo, OpenRouter usa claves largas alfanuméricas)
+                if len(nueva_key) < 20:
+                    messagebox.showwarning("Advertencia", "La clave parece demasiado corta. ¿Es válida?", parent=ventana)
+
+                self.openrouter_api_key = nueva_key
+                self.router_client = OpenRouterClient(self.openrouter_api_key)
+                self.config_data["openrouter_api_key"] = nueva_key
+                guardar_config(self.config_data)
+
+                messagebox.showinfo("Éxito", "API key de OpenRouter actualizada.", parent=ventana)
+                ventana.destroy()
+
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo leer el archivo:\n{e}", parent=ventana)
+
+        tk.Button(ventana, text="Seleccionar archivo", command=seleccionar_archivo).pack(pady=(0, 20))
+
 
     # ──────────────────────────────────────────────────────────────────────
     # Lógica de transcripción en segundo plano (Deepgram)
     # ──────────────────────────────────────────────────────────────────────
+   
     """
     def _on_transcribir(self):
         if not self.selected_files:
@@ -461,21 +562,22 @@ class AsisVozApp(TkinterDnD.Tk):
         self.btn_abrir_transcripcion.pack(pady=(5, 0))
 
     def _on_open_transcripcion(self):
-       
-        #ruta_pdf = self.transcriptor.obtener_ruta_pdf("transcripcion.pdf")
-        ruta_pdf = "transcripcion.pdf"
-        sistema = platform.system()
-        print(f"Sistema operativo detectado: {sistema}")
 
+        ruta_pdf = "transcripcion.pdf"
+        
+        if not os.path.exists(ruta_pdf):
+            messagebox.showerror("Archivo no encontrado", f"No se encontró el archivo {ruta_pdf}.")
+            return
+        
+        sistema = platform.system()
+        
         if sistema == "Windows":
             os.startfile(ruta_pdf)
         elif sistema == "Darwin":
             subprocess.call(["open", ruta_pdf])
         else:
             subprocess.call(["xdg-open", ruta_pdf])
-
-        messagebox.showinfo("Transcripción", "Aquí podrías abrir el archivo generado.")
-
+            
     # ──────────────────────────────────────────────────────────────────────
     # Lógica del chatbot (OpenRouter) en hilos para no bloquear la GUI
     # ──────────────────────────────────────────────────────────────────────

@@ -38,8 +38,7 @@ class DeepgramPDFTranscriber:
         inicio = time.time()
         try:
             if not ruta_audio or not os.path.isfile(ruta_audio):
-                print("❌ Archivo no válido o no encontrado.")
-                return
+                raise FileNotFoundError("❌ Archivo no válido o no encontrado.")
 
             with open(ruta_audio, "rb") as f:
                 audio_bytes = f.read()
@@ -63,24 +62,26 @@ class DeepgramPDFTranscriber:
             transcripciones = []
 
             for alt in channel.alternatives:
-                if alt.paragraphs:
+                if hasattr(alt, "paragraphs") and alt.paragraphs and hasattr(alt.paragraphs, "paragraphs"):
                     for paragraph in alt.paragraphs.paragraphs:
                         tiempo = self.segundos_a_hhmmss(paragraph.start)
                         speaker = f"Locutor {paragraph.speaker}"
                         texto = " ".join([s.text for s in paragraph.sentences])
-                        linea = f"{tiempo} {speaker}: {texto.strip()}\n"
-                        print(linea)
+                        linea = f"{tiempo} {speaker}: {texto.strip()}"
                         transcripciones.append(linea)
-                else:
-                    linea = f"Transcript: {alt.transcript}"
-                    print(linea)
-                    transcripciones.append(linea)
+                elif alt.transcript and alt.transcript.strip():
+                    # Fallback si hay texto sin párrafos
+                    transcripciones.append(alt.transcript.strip())
 
-            nombre_base = os.path.splitext(os.path.basename(ruta_audio))[0]
-            self.generar_pdf(nombre_base, transcripciones)
+            if not transcripciones:
+                raise ValueError("⚠ No se detectó voz en el archivo. Verifica que contenga audio hablado.")
+
+            self.generar_pdf("transcripcion", transcripciones)
 
             fin = time.time()
             print(f"\n⏱ Tiempo de ejecución: {fin - inicio:.2f} segundos")
 
         except Exception as e:
             print(f"❌ Exception: {e}")
+            raise  # Opcional: relanza para que la GUI también lo muestre si lo capturas desde allá
+
