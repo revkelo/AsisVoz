@@ -289,6 +289,33 @@ class AsisVozApp(TkinterDnD.Tk):
         else:
             self._on_send_message()
 
+    def _mostrar_aviso_banner(self, mensaje, color="#d1f0d1", duracion=3000):
+        aviso = ctk.CTkFrame(self, fg_color=color, corner_radius=8)
+        aviso.place(relx=0.5, rely=0.95, anchor="s")  # Posición inferior centrada
+
+        ctk.CTkLabel(
+            aviso,
+            text=mensaje,
+            text_color="black",
+            font=ctk.CTkFont(size=12)
+        ).pack(padx=10, pady=5)
+
+        # Eliminar el aviso después de X milisegundos
+        self.after(duracion, aviso.destroy)
+
+    def _mostrar_aviso_banner_eliminar(self, mensaje, color="#f16046", duracion=3000):
+        aviso = ctk.CTkFrame(self, fg_color=color, corner_radius=8)
+        aviso.place(relx=0.5, rely=0.95, anchor="s")  # Posición inferior centrada
+
+        ctk.CTkLabel(
+            aviso,
+            text=mensaje,
+            text_color="black",
+            font=ctk.CTkFont(size=12)
+        ).pack(padx=10, pady=5)
+
+        # Eliminar el aviso después de X milisegundos
+        self.after(duracion, aviso.destroy)
 
     def _start_gif(self):
         # en lugar de pack(), lo hacemos visible con place again
@@ -384,6 +411,7 @@ class AsisVozApp(TkinterDnD.Tk):
         self.selected_files = list(rutas)
         self._actualizar_lista_archivos()
         print("Archivos seleccionados:", self.selected_files)
+        self._mostrar_aviso_banner("✔ Archivos cargados correctamente")
 
     def _actualizar_lista_archivos(self):
         for widget in self.archivos_frame.winfo_children():
@@ -410,6 +438,7 @@ class AsisVozApp(TkinterDnD.Tk):
             ).pack(side="right", padx=5)
 
     def _eliminar_archivo(self, ruta):
+        self._mostrar_aviso_banner_eliminar("❌ Archivo eliminado correctamente")
         self.selected_files.remove(ruta)
         self._actualizar_lista_archivos()
 
