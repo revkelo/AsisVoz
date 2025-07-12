@@ -119,7 +119,7 @@ class AsisVozApp(TkinterDnD.Tk):
             border_color="#aaaaaa",
             corner_radius=15
         )
-        chat_frame.pack(anchor="n", padx=10, pady=10, fill="y")
+        chat_frame.pack(anchor="n", padx=10, pady=(40, 10), fill="y")
         chat_frame.pack_propagate(False)
 
         # Icono y título del chatbot
@@ -150,6 +150,19 @@ class AsisVozApp(TkinterDnD.Tk):
             corner_radius=10
         )
         
+       # ─── SALDO EN ESQUINA SUPERIOR DERECHA ──────────────────────────────
+        self.lbl_saldo = ctk.CTkLabel(
+            self,
+            text="💰 Saldo: 100 créditos",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="black",
+            fg_color="#aaaaaa",
+            corner_radius=10,
+            padx=5,
+            pady=15
+        )
+
+        self.lbl_saldo.place(relx=0.96, rely=0.01, anchor="ne")  # Esquina superior derecha
         try:
             index = 0
             while True:
@@ -212,6 +225,8 @@ class AsisVozApp(TkinterDnD.Tk):
             height=32,
             command=self._on_send_with_pdf
         ).pack(side="left", padx=(5, 0))
+
+    
         
     def _mostrar_aviso_banner(self, mensaje, color="#d1f0d1", duracion=3000):
         aviso = ctk.CTkFrame(self, fg_color=color, corner_radius=8)
