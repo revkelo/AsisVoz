@@ -1,4 +1,16 @@
+import json
 import requests
+from cryptography.fernet import Fernet
+
+# ------------------ CONSTANTES ------------------
+CLAVE_FIJA = b'K9TOUzAY5sQWnrsMfSrSWS9MD9KTv6c_Btf5n65_1Lc='
+fernet = Fernet(CLAVE_FIJA)
+
+# ------------------ VARIABLES GLOBALES ------------------
+OPENROUTER_API_KEY = None
+DEEPGRAM_API_KEY = None
+
+# ------------------ FUNCIONES API KEYS ------------------
 
 def validar_api_key_deepgram(api_key):
     """
@@ -13,7 +25,6 @@ def validar_api_key_deepgram(api_key):
         response = requests.get(url, headers=headers)
         print(f"🔍 Deepgram status: {response.status_code}")
         print(response.json())
-        print("✅ API key válida Deepgram.")
         return response.status_code == 200
     except requests.exceptions.RequestException as e:
         print(f"❌ Error al conectar con Deepgram: {e}")
@@ -31,14 +42,51 @@ def verificar_openrouter_key(api_key: str) -> bool:
 
     try:
         response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            print("✅ API key válida OPENROUTER.")
-            print("Detalles:", response.json())
-            return True
-        else:
-            print(f"❌ API key no válida. Código: {response.status_code}")
-            print("Respuesta:", response.text)
-            return False
+        print(f"🔍 OpenRouter status: {response.status_code}")
+        print(response.json())
+        return response.status_code == 200
     except Exception as e:
-        print("⚠️ Error al intentar conectar con OpenRouter:", e)
+        print(f"❌ Error al conectar con OpenRouter: {e}")
         return False
+
+# ------------------ FUNCIONES DE CIFRADO ------------------
+
+def cifrar_archivo(path_entrada, path_salida=None):
+    """
+    Cifra un archivo con Fernet y lo guarda con extensión .cif.
+    """
+    try:
+        with open(path_entrada, "rb") as f:
+            datos = f.read()
+        cifrado = fernet.encrypt(datos)
+        if not path_salida:
+            path_salida = path_entrada + ".cif"
+        with open(path_salida, "wb") as f:
+            f.write(cifrado)
+        print(f"✅ Archivo cifrado guardado en: {path_salida}")
+    except Exception as e:
+        print(f"❌ Error al cifrar: {e}")
+
+def descifrar_y_extraer_claves(path_cifrado):
+    """
+    Descifra un archivo .cif y extrae claves API desde JSON.
+    Las guarda en variables globales OPENROUTER_API_KEY y DEEPGRAM_API_KEY.
+    """
+    global OPENROUTER_API_KEY, DEEPGRAM_API_KEY
+
+    try:
+        with open(path_cifrado, "rb") as f:
+            datos_cifrados = f.read()
+        descifrado = fernet.decrypt(datos_cifrados)
+        datos_json = json.loads(descifrado.decode("utf-8"))
+
+        OPENROUTER_API_KEY = datos_json.get("openrouter_api_key")
+        DEEPGRAM_API_KEY = datos_json.get("deepgram_api_key")
+
+        return {
+            "openrouter_api_key": OPENROUTER_API_KEY,
+            "deepgram_api_key": DEEPGRAM_API_KEY
+        }
+    except Exception as e:
+        print(f"❌ Error al descifrar o extraer claves: {e}")
+        return None
