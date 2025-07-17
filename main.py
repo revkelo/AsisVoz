@@ -2,7 +2,8 @@ import customtkinter as ctk
 import tkinter as tk  # Necesario para Menu
 from tkinter import messagebox
 from VentanaKeys import VentanaLicencia, cargar_keys
-from VentanaPrincipal import AsisVozApp  # Importa la app principal
+from VentanaPrincipal import AsisVozApp
+import utils  # Importa la app principal
 
 # Configuración del tema
 ctk.set_appearance_mode("system")
@@ -185,6 +186,8 @@ def crear_ventana_principal():
         text_color="gray"
     )
     info_label.pack(pady=(10, 20))
+    
+    utils.descifrar_y_extraer_claves("config.json.cif")
 
     root.mainloop()
 

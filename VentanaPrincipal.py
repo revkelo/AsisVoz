@@ -14,19 +14,12 @@ import platform
 import subprocess
 from PIL import Image
 import VentanaKeys
-import json
 
-CONFIG_PATH = "./config.json"
+import utils
 
-def cargar_config():
-    if not os.path.isfile(CONFIG_PATH):
-        return {"openrouter_api_key": "", "deepgram_api_key": ""}
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
 
-def guardar_config(config):
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=2)
+
+
 
 
 
@@ -46,11 +39,12 @@ class AsisVozApp(TkinterDnD.Tk):
         gif = Image.open("./media/cargando.gif")
         self.auxiliar = ""
 
-        # Cliente de OpenRouter (tiene preguntar_texto y preguntar_con_pdf)
-        self.config_data = cargar_config()
+    
 
-        self.openrouter_api_key = self.config_data.get("openrouter_api_key", "")
-        self.deepgram_api_key = self.config_data.get("deepgram_api_key", "")
+        self.deepgram_api_key = utils.DEEPGRAM_API_KEY
+        self.openrouter_api_key = utils.OPENROUTER_API_KEY
+        print(self.deepgram_api_key)
+        print(self.openrouter_api_key)
 
         self.router_client = OpenRouterClient(self.openrouter_api_key)
         self.transcriptor = DeepgramPDFTranscriber(self.deepgram_api_key)
@@ -253,6 +247,8 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Actualizar binding del <Return>
         self.entry_message.bind("<Return>", lambda event: self._on_send_based_on_switch())
+        
+
 
 
     def obtener_balance_deepgram(self) -> str:
@@ -531,9 +527,9 @@ class AsisVozApp(TkinterDnD.Tk):
                     return
 
                 self.deepgram_api_key = nueva_key
-                self.transcriptor = DeepgramTranscriber(self.deepgram_api_key)
+                self.transcriptor = DeepgramPDFTranscriber(self.deepgram_api_key)
                 self.config_data["deepgram_api_key"] = nueva_key
-                guardar_config(self.config_data)
+                #guardar_config(self.config_data)
 
                 messagebox.showinfo("Éxito", "API key de Deepgram actualizada.", parent=ventana)
                 ventana.destroy()
@@ -584,7 +580,7 @@ class AsisVozApp(TkinterDnD.Tk):
                 self.openrouter_api_key = nueva_key
                 self.router_client = OpenRouterClient(self.openrouter_api_key)
                 self.config_data["openrouter_api_key"] = nueva_key
-                guardar_config(self.config_data)
+                #guardar_config(self.config_data)
 
                 messagebox.showinfo("Éxito", "API key de OpenRouter actualizada.", parent=ventana)
                 ventana.destroy()
@@ -783,8 +779,4 @@ class AsisVozApp(TkinterDnD.Tk):
         self.after(50, lambda: self.chat_area._parent_canvas.yview_moveto(1.0))
         return frame_burbuja
 
-if __name__ == "__main__":
-    # Reemplaza "TU_API_KEY_AQUI" con tu API key real de OpenRouter:
 
-    app = AsisVozApp()
-    app.mainloop()
