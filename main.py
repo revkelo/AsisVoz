@@ -1,5 +1,8 @@
 import tkinter as tk
 from VentanaKeys import VentanaLicencia, cargar_keys
+from VentanaPrincipal import AsisVozApp  # Importa la app principal
+from utils import validar_api_key_deepgram, verificar_openrouter_key
+
 
 ventana_licencia = None
 
@@ -18,6 +21,19 @@ def centrar_ventana(ventana, ancho, alto):
     x = (ventana.winfo_screenwidth() // 2) - (ancho // 2)
     y = (ventana.winfo_screenheight() // 2) - (alto // 2)
     ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
+
+def iniciar_asisvoz(root):
+    root.withdraw()  # Oculta la ventana principal
+
+    app = AsisVozApp()
+
+    # Cuando se cierre AsisVoz, vuelve a mostrar la ventana principal
+    def on_close():
+        app.destroy()
+        root.deiconify()
+
+    app.protocol("WM_DELETE_WINDOW", on_close)
+    app.mainloop()
 
 def crear_ventana_principal():
     cargar_keys()
@@ -46,7 +62,7 @@ def crear_ventana_principal():
         font=("Arial", 16),
         width=20,
         height=2,
-        command=lambda: print("Aquí abres la otra ventana")
+        command=lambda: iniciar_asisvoz(root)
     )
     btn_iniciar.pack()
 

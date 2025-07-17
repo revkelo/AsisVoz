@@ -3,6 +3,7 @@ import os
 import requests
 import customtkinter as ctk
 from tkinter import messagebox
+from utils import validar_api_key_deepgram, verificar_openrouter_key
 
 CONFIG_FILE = "config2.json"
 keys_data = {
@@ -28,42 +29,7 @@ def guardar_keys_en_archivo():
     except Exception as e:
         messagebox.showerror("Error", f"No se pudo guardar el archivo de configuración:\n{e}")
 
-# Validar clave Deepgram
-def validar_api_key_deepgram(api_key):
-    url = "https://api.deepgram.com/v1/projects"
-    headers = {
-        "Authorization": f"Token {api_key}"
-    }
 
-    try:
-        response = requests.get(url, headers=headers)
-        print(response.status_code)
-        print(response.json())
-        return response.status_code == 200
-    except requests.exceptions.RequestException as e:
-        print(f"Error de conexión: {e}")
-        return False
-
-
-def verificar_openrouter_key(api_key: str) -> bool:
-    url = "https://openrouter.ai/api/v1/models"
-    headers = {
-        "Authorization": f"Bearer {api_key}"
-    }
-
-    try:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            print("✅ API key válida.")
-            return True
-        else:
-            print(f"❌ API key no válida. Código de estado: {response.status_code}")
-            print("Detalles:", response.text)
-            return False
-    except Exception as e:
-        print("⚠️ Error al intentar conectar con OpenRouter:", e)
-        return False
-    
     
 # Ventana para registrar licencias
 class VentanaLicencia(ctk.CTkToplevel):
