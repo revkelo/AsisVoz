@@ -1,6 +1,7 @@
 import os
 import threading
 import customtkinter as ctk
+import requests
 from DeepGramClient import DeepgramPDFTranscriber
 
 from customtkinter import CTkImage
@@ -12,7 +13,7 @@ import tkinter as tk
 import platform
 import subprocess
 from PIL import Image
-
+import VentanaKeys
 import json
 
 CONFIG_PATH = "./config.json"
@@ -43,6 +44,7 @@ class AsisVozApp(TkinterDnD.Tk):
         self._gif_frames = []
         self._gif_size = (200, 200)
         gif = Image.open("./media/cargando.gif")
+        self.auxiliar = ""
 
         # Cliente de OpenRouter (tiene preguntar_texto y preguntar_con_pdf)
         self.config_data = cargar_config()
@@ -176,7 +178,7 @@ class AsisVozApp(TkinterDnD.Tk):
          # ─── SALDO EN ESQUINA SUPERIOR DERECHA ──────────────────────────────
         self.lbl_saldo = ctk.CTkLabel(
             self,
-            text="💰 Saldo: 100 créditos",
+            text= self.obtener_balance_deepgram(),
             font=ctk.CTkFont(size=13, weight="bold"),
             text_color="black",
             fg_color="#aaaaaa",
@@ -251,6 +253,45 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Actualizar binding del <Return>
         self.entry_message.bind("<Return>", lambda event: self._on_send_based_on_switch())
+
+
+    def obtener_balance_deepgram(self) -> str:
+            """
+            Llama a GET /v1/projects/:project_id/balances
+            y muestra el amount en USD y COP.
+            """
+            # Obtener project_id
+            self.aux = VentanaKeys.obtener_project_id_deepgram(VentanaKeys.keys_data.get("deepgram_api_key", ""))
+            url = f"https://api.deepgram.com/v1/projects/{self.aux}/balances"
+            headers = {
+                "Authorization": f"Token {VentanaKeys.keys_data.get('deepgram_api_key', '')}"
+            }
+
+            # Tasa de conversión (puedes actualizarla manualmente si deseas)
+            tasa_dolar_a_cop = 4000  # Puedes cambiar esta cifra según la tasa actual
+
+            try:
+                resp = requests.get(url, headers=headers, timeout=10)
+                resp.raise_for_status()
+                data = resp.json()
+
+                # Extraer amount y units del primer balance
+                balances = data.get("balances", [])
+                if balances:
+                    amount = balances[0].get("amount")  # valor en USD
+                    units = balances[0].get("units")
+
+                    # Convertir a pesos colombianos
+                    amount_cop = round(amount * tasa_dolar_a_cop)
+
+                    return f"💰 {amount:.2f} {units.upper()} / ${amount_cop:,} COP"
+                else:
+                    return "❗ No se encontró ningún balance disponible."
+
+            except requests.RequestException as e:
+                print(f"❌ Error al obtener balance de Deepgram: {e}")
+                return "❌ Error al obtener balance."
+
 
 
     def _on_select_pdf(self):

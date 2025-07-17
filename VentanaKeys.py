@@ -11,6 +11,25 @@ keys_data = {
     "openrouter_api_key": ""
 }
 
+
+# Obtener variable de interes
+def obtener_project_id_deepgram(api_key):
+    try:
+        headers = {
+            "Authorization": f"Token {api_key}"
+        }
+        response = requests.get("https://api.deepgram.com/v1/projects", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            # Tomamos el primer proyecto (o puedes ajustar para seleccionar uno específico)
+            project_id = data["projects"][0]["project_id"]
+            return project_id
+        else:
+            print(f"Error al obtener project_id: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"Excepción al obtener project_id: {e}")
+    return None
+
 # Cargar claves desde el archivo
 def cargar_keys():
     if os.path.exists(CONFIG_FILE):
