@@ -1,42 +1,56 @@
 import tkinter as tk
-from tkinter import messagebox
-from VentanaPrincipal import AsisVozApp
+from VentanaKeys import VentanaLicencia, cargar_keys
 
-class VentanaPrincipal(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.title("Inicio - AsisVoz")
-        self.geometry("400x250")
-        self.resizable(False, False)
+ventana_licencia = None
 
-        # ─── Menú superior ─────────────────────────────────────
-        menubar = tk.Menu(self)
+def mostrar_ventana_licencia(root):
+    global ventana_licencia
 
-        menu_opciones = tk.Menu(menubar, tearoff=0)
-        menu_opciones.add_command(label="Registrar Licencia", command=self.registrar_licencia)
-        menu_opciones.add_command(label="Configurar Keys", command=self.configurar_keys)
-        menubar.add_cascade(label="Opciones", menu=menu_opciones)
+    if ventana_licencia is not None and tk.Toplevel.winfo_exists(ventana_licencia):
+        ventana_licencia.deiconify()
+        ventana_licencia.lift()
+        ventana_licencia.focus_force()
+    else:
+        ventana_licencia = VentanaLicencia(root)
 
-        self.config(menu=menubar)
+def centrar_ventana(ventana, ancho, alto):
+    ventana.update_idletasks()
+    x = (ventana.winfo_screenwidth() // 2) - (ancho // 2)
+    y = (ventana.winfo_screenheight() // 2) - (alto // 2)
+    ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
 
-        # ─── Título y botón ────────────────────────────────────
-        tk.Label(self, text="Bienvenido a AsisVoz", font=("Arial", 16, "bold")).pack(pady=30)
+def crear_ventana_principal():
+    cargar_keys()
 
-        btn_iniciar = tk.Button(self, text="Iniciar", font=("Arial", 12), width=15, command=self.abrir_asisvoz)
-        btn_iniciar.pack(pady=10)
+    root = tk.Tk()
+    root.title("App Principal")
+    ancho_ventana, alto_ventana = 600, 400
+    centrar_ventana(root, ancho_ventana, alto_ventana)
 
-    def registrar_licencia(self):
-        messagebox.showinfo("Licencia", "Aquí se registrará la licencia...")
+    menubar = tk.Menu(root)
+    root.config(menu=menubar)
 
-    def configurar_keys(self):
-        messagebox.showinfo("Configuración", "Aquí se configurarán las API keys...")
+    opciones_menu = tk.Menu(menubar, tearoff=0)
+    opciones_menu.add_command(label="Registrar Licencia", command=lambda: mostrar_ventana_licencia(root))
+    opciones_menu.add_separator()
+    opciones_menu.add_command(label="Salir", command=root.quit)
 
-    def abrir_asisvoz(self):
-        self.withdraw()  # Ocultar esta ventana
-        app = AsisVozApp()
-        app.mainloop()
-        self.deiconify()  # Mostrarla nuevamente cuando se cierre la otra
+    menubar.add_cascade(label="Opciones", menu=opciones_menu)
+
+    btn_frame = tk.Frame(root)
+    btn_frame.place(relx=0.5, rely=0.5, anchor="center")
+
+    btn_iniciar = tk.Button(
+        btn_frame,
+        text="Iniciar Aplicación",
+        font=("Arial", 16),
+        width=20,
+        height=2,
+        command=lambda: print("Aquí abres la otra ventana")
+    )
+    btn_iniciar.pack()
+
+    root.mainloop()
 
 if __name__ == "__main__":
-    app = VentanaPrincipal()
-    app.mainloop()
+    crear_ventana_principal()
