@@ -168,7 +168,7 @@ def crear_ventana_principal():
     # Título
     titulo_label = ctk.CTkLabel(
         main_frame, 
-        text="Sistema de Gestión de Licencias", 
+        text="AsisVoz - Asistente de Voz", 
         font=ctk.CTkFont(size=24, weight="bold")
     )
     titulo_label.pack(pady=(40, 30))
