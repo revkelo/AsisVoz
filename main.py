@@ -62,6 +62,12 @@ def mostrar_ventana_licencia(root):
 
 ARCHIVO_ESTADO_LICENCIA = "estado_licencia.json"
 
+def validar_keys():
+    if not utils.OPENROUTER_API_KEY or not utils.DEEPGRAM_API_KEY:
+        messagebox.showerror("Error de configuración", "Las claves API no están correctamente configuradas.")
+        return False
+    return True
+
 
 # ✅ Verificar si la licencia ingresada está en la lista
 def verificar_licencia(clave_ingresada):
@@ -183,6 +189,10 @@ def iniciar_asisvoz(root):
     if not licencia_ya_registrada():
         messagebox.showwarning("Licencia requerida", "⚠️ Debe ingresar una licencia válida antes de continuar.")
         return  # ✅ Este return debe estar dentro del if
+    
+    if not validar_keys():  # ← AQUÍ SE USA
+        return
+
 
     root.withdraw()
     app = AsisVozApp(utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
