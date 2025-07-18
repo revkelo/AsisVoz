@@ -5,26 +5,22 @@ import customtkinter as ctk
 from tkinter import messagebox
 from cryptography.fernet import Fernet
 from utils import (
-    CLAVE_FIJA,
+    guardar_claves_cifradas,
     validar_api_key_deepgram,
     verificar_openrouter_key,
-    descifrar_y_extraer_claves
+
     
 )
+import utils
 
-FERNET = Fernet(CLAVE_FIJA)
 
-# Constantes
-ARCHIVO_CLAVES = "config.json.cif"
-keys_data = {}
+
 
 # ✅ Valida ambas claves
 def validar_claves(deepgram_key, openrouter_key):
     return validar_api_key_deepgram(deepgram_key) and verificar_openrouter_key(openrouter_key)
 
-def cargar_keys():
-        from utils import descifrar_y_extraer_claves
-        return descifrar_y_extraer_claves("config.json.cif")
+
 
 # ✅ Obtener project_id (no se usa ahora, pero útil si lo necesitas después)
 def obtener_project_id_deepgram(api_key):
@@ -40,15 +36,12 @@ def obtener_project_id_deepgram(api_key):
         print(f"Excepción al obtener project_id: {e}")
     return None
 
-# ✅ Carga las claves descifradas al iniciar
-claves_temp = descifrar_y_extraer_claves(ARCHIVO_CLAVES)
-if claves_temp:
-    keys_data["deepgram_api_key"] = claves_temp.get("deepgram_api_key", "")
-    keys_data["openrouter_api_key"] = claves_temp.get("openrouter_api_key", "")
+
 
 # ✅ Ventana principal para ingresar claves
 class VentanaLicencia(ctk.CTkToplevel):
-    def __init__(self, root):
+    def __init__(self, root, openrouter_key, deepgram_key):
+
         super().__init__(root)
 
         self.title("Registrar Licencia")
@@ -65,7 +58,7 @@ class VentanaLicencia(ctk.CTkToplevel):
         frame_deepgram.pack(pady=5, padx=10, fill="x")
 
         self.entry_deepgram = ctk.CTkEntry(frame_deepgram, show="*", width=360)
-        self.entry_deepgram.insert(0, keys_data.get("deepgram_api_key", ""))
+        self.entry_deepgram.insert(0, deepgram_key)
         self.entry_deepgram.pack(side="left", padx=(0, 10), expand=True, fill="x")
 
         self.show_deepgram = ctk.CTkCheckBox(
@@ -82,7 +75,8 @@ class VentanaLicencia(ctk.CTkToplevel):
         frame_openrouter.pack(pady=5, padx=10, fill="x")
 
         self.entry_openrouter = ctk.CTkEntry(frame_openrouter, show="*", width=360)
-        self.entry_openrouter.insert(0, keys_data.get("openrouter_api_key", ""))
+  
+        self.entry_openrouter.insert(0, openrouter_key)
         self.entry_openrouter.pack(side="left", padx=(0, 10), expand=True, fill="x")
 
         self.show_openrouter = ctk.CTkCheckBox(
@@ -116,12 +110,12 @@ class VentanaLicencia(ctk.CTkToplevel):
             messagebox.showerror("Error", "Alguna de las claves no es válida.")
             return
 
-        # Guardar en memoria
-        keys_data["deepgram_api_key"] = deepgram_key
-        keys_data["openrouter_api_key"] = openrouter_key
+        
+        utils.DEEPGRAM_API_KEY = deepgram_key
+        utils.OPENROUTER_API_KEY = openrouter_key
 
         # ✅ Guardar cifrado
-        exito = guardar_claves_cifradas(ARCHIVO_CLAVES, openrouter_key, deepgram_key)
+        exito = guardar_claves_cifradas(openrouter_key, deepgram_key)
         if exito:
             messagebox.showinfo("Guardado", "Las claves han sido guardadas correctamente.")
             self.destroy()
@@ -137,23 +131,4 @@ class VentanaLicencia(ctk.CTkToplevel):
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f"+{x}+{y}")
 
-def guardar_claves_cifradas(path_salida, openrouter_key, deepgram_key):
-    try:
-        # Construimos el diccionario que queremos guardar
-        datos = {
-            "openrouter_api_key": openrouter_key,
-            "deepgram_api_key": deepgram_key
-        }
 
-        # Serializamos y ciframos con la CLAVE_FIJA
-        datos_json = json.dumps(datos).encode("utf-8")
-        datos_cifrados = FERNET.encrypt(datos_json)
-
-        # Sobrescribimos el archivo original cifrado
-        with open(path_salida, "wb") as f:
-            f.write(datos_cifrados)
-
-        return True
-    except Exception as e:
-        print(f"❌ Error al guardar claves cifradas: {e}")
-        return False

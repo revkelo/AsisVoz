@@ -1,11 +1,11 @@
 import customtkinter as ctk
 import tkinter as tk  # Necesario para Menu
 from tkinter import messagebox
-from VentanaKeys import VentanaLicencia, cargar_keys
+from VentanaKeys import VentanaLicencia
 from VentanaPrincipal import AsisVozApp
-import utils  # Importa la app principal
-from utils import descifrar_y_extraer_claves, verificar_openrouter_key, validar_api_key_deepgram
-from secure_storage import generar_clave_secreta, cargar_claves
+import utils  
+
+
 
 
 
@@ -44,7 +44,7 @@ def mostrar_ventana_licencia(root):
     if ventana_licencia is not None and ventana_licencia.winfo_exists():
         traer_ventana_al_frente(ventana_licencia, modal=False)  # No modal para ventana de licencia
     else:
-        ventana_licencia = VentanaLicencia(root)
+        ventana_licencia = VentanaLicencia(root, utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
         
         # Configurar el cierre adecuado para la ventana de licencia
         original_destroy = ventana_licencia.destroy
@@ -140,8 +140,8 @@ def iniciar_asisvoz(root):
     app.protocol("WM_DELETE_WINDOW", on_close)
     app.mainloop()
 
-def crear_ventana_principal(deepgram_api_key, openrouter_api_key):
-    cargar_keys()
+def crear_ventana_principal():
+  
 
     root = ctk.CTk()
     root.title("App Principal")
@@ -191,16 +191,14 @@ def crear_ventana_principal(deepgram_api_key, openrouter_api_key):
     )
     info_label.pack(pady=(10, 20))
     
-    utils.descifrar_y_extraer_claves("config.json.cif")
+    
 
     root.mainloop()
 
 if __name__ == "__main__":
 
-    print("🔐 Descifrando archivo cifrado original...")
-    claves = descifrar_y_extraer_claves("config.json.cif")  # Devuelve dict con las claves
 
-    deepgram_api_key = claves.get("deepgram_api_key", "")
-    openrouter_api_key = claves.get("openrouter_api_key", "")
-
-    crear_ventana_principal(deepgram_api_key, openrouter_api_key)
+    utils.descifrar_y_extraer_claves()
+    print("Clave Deepgram:", utils.DEEPGRAM_API_KEY)
+    print("Clave OpenRouter:", utils.OPENROUTER_API_KEY)
+    crear_ventana_principal()
