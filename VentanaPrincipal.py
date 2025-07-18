@@ -367,11 +367,13 @@ class AsisVozApp(TkinterDnD.Tk):
             text="O",
             font=ctk.CTkFont(size=11)
         ).pack(pady=5)
-        ctk.CTkButton(
+        self.btn_browse = ctk.CTkButton(
             contenedor,
             text="Buscar archivos de audio",
             command=self._on_browse_files
-        ).pack()
+        )
+        self.btn_browse.pack()
+
 
         # Habilitar drop de archivos
         contenedor.drop_target_register(DND_FILES)
@@ -395,37 +397,38 @@ class AsisVozApp(TkinterDnD.Tk):
         self._actualizar_lista_archivos()
 
     def _on_browse_files(self):
-        tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus"),]
-        rutas = filedialog.askopenfilenames(
-            title="Selecciona archivos de audio",
-            filetypes=tipos_permitidos
-        )
+        # Deshabilitar para evitar múltiples clics
+        self.btn_browse.configure(state="disabled")
+        self.update_idletasks()
 
-        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
-        archivos_validos = [ruta for ruta in rutas if ruta.lower().endswith(extensiones_validas)]
+        try:
+            tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus"),]
+            rutas = filedialog.askopenfilenames(
+                title="Selecciona archivos de audio",
+                filetypes=tipos_permitidos
+            )
 
-        if not archivos_validos:
-                messagebox.showerror("Error", "Por favor selecciona solo archivos de audio válidos.")
-        else:
-                # Aquí haces lo que necesitas con los archivos
-                print("Archivos seleccionados:")
-                for archivo in archivos_validos:
-                    print(archivo)
+            extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
+            archivos_validos = [ruta for ruta in rutas if ruta.lower().endswith(extensiones_validas)]
 
-        if not rutas:
-            return
+            if not archivos_validos:
+                if rutas:  # hubo selección pero no válida
+                    messagebox.showerror("Error", "Por favor selecciona solo archivos de audio válidos.")
+                return
 
-        if len(rutas) > 5:
-            messagebox.showerror("Error", "Solo puedes seleccionar hasta 5 archivos.")
-            return
+            if len(archivos_validos) > 5:
+                messagebox.showerror("Error", "Solo puedes seleccionar hasta 5 archivos.")
+                return
 
-        self.selected_files = list(archivos_validos)
-        self._actualizar_lista_archivos()
-        nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
-        self.nombre_pdf = f"{nombre_base}.pdf"  # Guardamos el nombre para usarlo luego
+            self.selected_files = list(archivos_validos)
+            self._actualizar_lista_archivos()
+            nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
+            self.nombre_pdf = f"{nombre_base}.pdf"
+            self._mostrar_aviso_banner("✔ Archivos cargados correctamente")
 
-        print("Archivos seleccionados:", self.selected_files)
-        self._mostrar_aviso_banner("✔ Archivos cargados correctamente")
+        finally:
+            # Volver a habilitar el botón siempre
+            self.btn_browse.configure(state="normal")
 
     def _actualizar_lista_archivos(self):
         for widget in self.archivos_frame.winfo_children():
@@ -471,32 +474,43 @@ class AsisVozApp(TkinterDnD.Tk):
             messagebox.showinfo("Sin archivos", "Primero selecciona archivos.")
             return
 
-        # Solicitar al usuario una carpeta para guardar el PDF
-        carpeta_destino = filedialog.askdirectory(
-            title="Selecciona una carpeta para guardar el PDF"
-        )
+        # Deshabilitar inmediatamente el botón
+        self.btn_transcribir.configure(state="disabled")
+        self.update_idletasks()
 
-        if not carpeta_destino:
-            messagebox.showinfo("Cancelado", "No se seleccionó ninguna carpeta.")
-            return
+        try:
+            carpeta_destino = filedialog.askdirectory(
+                title="Selecciona una carpeta para guardar el PDF"
+            )
 
-        # Crear nombre del PDF usando el nombre del primer archivo de audio
-        nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
-        self.nombre_pdf = os.path.join(carpeta_destino, f"{nombre_base}.pdf")
-            
-        self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
+            if not carpeta_destino:
+                messagebox.showinfo("Cancelado", "No se seleccionó ninguna carpeta.")
+                return
 
-        def tarea():
-            try:
-                ruta = self.selected_files[0]
-                self.transcriptor.transcribir_audio(ruta, self.nombre_pdf)
-                self._mostrar_aviso_banner(f"🎧 Transcribiendo: {os.path.basename(ruta)}")
-                self.after(0, self._transcripcion_exitosa)
-            except Exception as e:
-                self.after(0, lambda: messagebox.showerror("Error", str(e)))
-            finally:
-                self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
-        threading.Thread(target=tarea, daemon=True).start()
+            # Crear nombre del PDF usando el nombre del primer archivo de audio
+            nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
+            self.nombre_pdf = os.path.join(carpeta_destino, f"{nombre_base}.pdf")
+
+            self.btn_transcribir.configure(text="Transcribiendo...")
+
+            def tarea():
+                try:
+                    ruta = self.selected_files[0]
+                    self.transcriptor.transcribir_audio(ruta, self.nombre_pdf)
+                    self._mostrar_aviso_banner(f"🎧 Transcribiendo: {os.path.basename(ruta)}")
+                    self.after(0, self._transcripcion_exitosa)
+                except Exception as e:
+                    self.after(0, lambda: messagebox.showerror("Error", str(e)))
+                finally:
+                    self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
+
+            threading.Thread(target=tarea, daemon=True).start()
+
+        finally:
+            # Si el usuario cancela antes de iniciar la transcripción, reactivar
+            if not hasattr(self, "nombre_pdf"):
+                self.btn_transcribir.configure(text="Transcribir", state="normal")
+
 
     def _transcripcion_exitosa(self):
         messagebox.showinfo("Éxito", "Transcripción completada.")
