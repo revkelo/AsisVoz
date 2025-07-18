@@ -1,3 +1,4 @@
+import json
 import os
 import customtkinter as ctk
 import tkinter as tk  # Necesario para Menu
@@ -14,9 +15,9 @@ ctk.set_default_color_theme("blue")
 
 # Lista de licencias válidas
 LICENCIAS_VALIDAS = [
-    "ABC123-DEF456-GHI789",
-    "JKL321-MNO654-PQR987",
-    "TUV111-WXY222-ZZZ333"
+     "A7X4D9-KLM3Q2-Z8N6YP",
+     "P3W9XK-8JDLQ1-R2M4VT",
+     "QZ8C1B-MN4V7E-5TPR6X"
 ]
 
 ventana_licencia = None
@@ -59,8 +60,51 @@ def mostrar_ventana_licencia(root):
         
         traer_ventana_al_frente(ventana_licencia, modal=False)  # No modal para ventana de licencia
 
-def verificar_licencia(clave: str) -> bool:
-    return clave.strip() in LICENCIAS_VALIDAS
+ARCHIVO_ESTADO_LICENCIA = "estado_licencia.json"
+
+
+# ✅ Verificar si la licencia ingresada está en la lista
+def verificar_licencia(clave_ingresada):
+    return clave_ingresada in LICENCIAS_VALIDAS
+
+
+# ✅ Guardar en archivo local que la licencia fue aceptada
+def guardar_licencia_valida():
+    try:
+        with open(ARCHIVO_ESTADO_LICENCIA, "w") as f:
+            json.dump({"licencia_valida": True}, f)
+    except Exception as e:
+        messagebox.showerror("Error", f"No se pudo guardar el estado de licencia:\n{e}")
+
+
+# ✅ Verificar si ya hay una licencia registrada válida
+def licencia_ya_registrada():
+    if os.path.exists(ARCHIVO_ESTADO_LICENCIA):
+        try:
+            with open(ARCHIVO_ESTADO_LICENCIA, "r") as f:
+                data = json.load(f)
+                return data.get("licencia_valida", False)
+        except:
+            return False
+    return False
+
+def validar_licencia(self):
+        clave = self.entry_licencia.get().strip()
+        if verificar_licencia(clave):
+            guardar_licencia_valida()
+            messagebox.showinfo("✅ Licencia válida", "La licencia fue aceptada.")
+            self.destroy()
+        else:
+            messagebox.showerror("❌ Licencia inválida", "La licencia no es válida.")
+
+
+# ✅ Lógica para iniciar app solo si ya hay licencia
+def iniciar_si_hay_licencia(root):
+    if licencia_ya_registrada():
+        iniciar_asisvoz(root)
+    else:
+        messagebox.showwarning("Licencia Requerida", "⚠️ Debe ingresar una licencia válida.")
+        VentanaLicencia(root)
 
 def mostrar_ventana_registro_equipo(root):
     global ventana_registro_equipo
@@ -98,9 +142,11 @@ def mostrar_ventana_registro_equipo(root):
         def registrar():
             clave = entry_clave.get()
             if verificar_licencia(clave):
+                guardar_licencia_valida()  # ✅ Guarda que la licencia es válida
                 messagebox.showinfo("Licencia válida", "✅ Licencia válida. Equipo registrado.")
-                ventana_registro_equipo.grab_release()  # Libera el grab antes de cerrar
+                ventana_registro_equipo.grab_release()
                 ventana_registro_equipo.destroy()
+
             else:
                 messagebox.showerror("Licencia inválida", "❌ La clave de licencia no es válida.")
 
@@ -134,11 +180,17 @@ def centrar_ventana(ventana, ancho, alto):
     
 
 def iniciar_asisvoz(root):
+    if not licencia_ya_registrada():
+        messagebox.showwarning("Licencia requerida", "⚠️ Debe ingresar una licencia válida antes de continuar.")
+        return  # ✅ Este return debe estar dentro del if
+
     root.withdraw()
     app = AsisVozApp(utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
+
     def on_close():
         app.destroy()
         root.deiconify()
+
     app.protocol("WM_DELETE_WINDOW", on_close)
     app.mainloop()
 
