@@ -257,7 +257,7 @@ def crear_ventana_principal():
         main_frame,
         text="Asegúrese de tener una licencia válida antes de iniciar la aplicación",
         font=ctk.CTkFont(size=10),
-        text_color="gray"
+        text_color="black"
     )
     info_label.pack(pady=(10, 20))
 
