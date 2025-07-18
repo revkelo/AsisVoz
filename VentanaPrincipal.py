@@ -402,8 +402,11 @@ class AsisVozApp(TkinterDnD.Tk):
             messagebox.showerror("Error", "Solo puedes seleccionar hasta 5 archivos.")
             return
 
-        self.selected_files = list(rutas)
+        self.selected_files = list(archivos_validos)
         self._actualizar_lista_archivos()
+        nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
+        self.nombre_pdf = f"{nombre_base}.pdf"  # Guardamos el nombre para usarlo luego
+
         print("Archivos seleccionados:", self.selected_files)
         self._mostrar_aviso_banner("✔ Archivos cargados correctamente")
 
@@ -451,12 +454,25 @@ class AsisVozApp(TkinterDnD.Tk):
             messagebox.showinfo("Sin archivos", "Primero selecciona archivos.")
             return
 
+        # Solicitar al usuario una carpeta para guardar el PDF
+        carpeta_destino = filedialog.askdirectory(
+            title="Selecciona una carpeta para guardar el PDF"
+        )
+
+        if not carpeta_destino:
+            messagebox.showinfo("Cancelado", "No se seleccionó ninguna carpeta.")
+            return
+
+        # Crear nombre del PDF usando el nombre del primer archivo de audio
+        nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
+        self.nombre_pdf = os.path.join(carpeta_destino, f"{nombre_base}.pdf")
+            
         self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
 
         def tarea():
             try:
                 ruta = self.selected_files[0]
-                self.transcriptor.transcribir_audio(ruta)
+                self.transcriptor.transcribir_audio(ruta, self.nombre_pdf)
                 self._mostrar_aviso_banner(f"🎧 Transcribiendo: {os.path.basename(ruta)}")
                 self.after(0, self._transcripcion_exitosa)
             except Exception as e:
@@ -476,14 +492,20 @@ class AsisVozApp(TkinterDnD.Tk):
         )
 
     def _on_open_transcripcion(self):
-        ruta_pdf = "transcripcion.pdf"
+        if not hasattr(self, "nombre_pdf"):
+            messagebox.showerror("Error", "No se ha generado ningún PDF.")
+            return
         
+
+        ruta_pdf = self.nombre_pdf
+
         if not os.path.exists(ruta_pdf):
             messagebox.showerror("Archivo no encontrado", f"No se encontró el archivo {ruta_pdf}.")
             return
-        
+
+
         sistema = platform.system()
-        
+
         if sistema == "Windows":
             os.startfile(ruta_pdf)
         elif sistema == "Darwin":

@@ -31,10 +31,13 @@ class DeepgramPDFTranscriber:
         for linea in transcripciones:
             pdf.multi_cell(0, 10, linea)
 
-        pdf.output(f"{nombre_salida}.pdf")
-        print(f"\n✅ PDF guardado como '{nombre_salida}.pdf'")
+        if not nombre_salida.lower().endswith(".pdf"):
+            nombre_salida += ".pdf"
 
-    def transcribir_audio(self, ruta_audio: str):
+        pdf.output(nombre_salida)
+        print(f"\n✅ PDF guardado como '{nombre_salida}'")
+
+    def transcribir_audio(self, ruta_audio, nombre_salida):
         inicio = time.time()
         try:
             if not ruta_audio or not os.path.isfile(ruta_audio):
@@ -76,7 +79,7 @@ class DeepgramPDFTranscriber:
             if not transcripciones:
                 raise ValueError("⚠ No se detectó voz en el archivo. Verifica que contenga audio hablado.")
 
-            self.generar_pdf("transcripcion", transcripciones)
+            self.generar_pdf(nombre_salida, transcripciones)
 
             fin = time.time()
             print(f"\n⏱ Tiempo de ejecución: {fin - inicio:.2f} segundos")
