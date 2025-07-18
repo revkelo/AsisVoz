@@ -58,7 +58,8 @@ class VentanaLicencia(ctk.CTkToplevel):
         frame_deepgram.pack(pady=5, padx=10, fill="x")
 
         self.entry_deepgram = ctk.CTkEntry(frame_deepgram, show="*", width=360)
-        self.entry_deepgram.insert(0, deepgram_key)
+        if deepgram_key:
+            self.entry_deepgram.insert(0, deepgram_key)
         self.entry_deepgram.pack(side="left", padx=(0, 10), expand=True, fill="x")
 
         self.show_deepgram = ctk.CTkCheckBox(
@@ -76,7 +77,8 @@ class VentanaLicencia(ctk.CTkToplevel):
 
         self.entry_openrouter = ctk.CTkEntry(frame_openrouter, show="*", width=360)
   
-        self.entry_openrouter.insert(0, openrouter_key)
+        if openrouter_key:
+            self.entry_openrouter.insert(0, openrouter_key)
         self.entry_openrouter.pack(side="left", padx=(0, 10), expand=True, fill="x")
 
         self.show_openrouter = ctk.CTkCheckBox(
@@ -110,6 +112,23 @@ class VentanaLicencia(ctk.CTkToplevel):
             messagebox.showerror("Error", "Alguna de las claves no es válida.")
             return
 
+        if not os.path.exists("config.json.cif") or os.path.getsize("config.json.cif") == 0:
+            claves = {
+                "openrouter_key": openrouter_key,
+                "deepgram_key": deepgram_key
+            }
+
+            try:
+                with open("config.json", "w") as f:
+                    json.dump(claves, f)
+
+                utils.cifrar_archivo("config.json", "config.json.cif")
+                os.remove("config.json")
+                print("✅ Archivo config.json.cif creado correctamente desde la ventana.")
+            except Exception as e:
+                print(f"❌ Error al crear el archivo cifrado desde ventana: {e}")
+                messagebox.showerror("Error", f"No se pudo crear el archivo cifrado: {e}")
+                return
         
         utils.DEEPGRAM_API_KEY = deepgram_key
         utils.OPENROUTER_API_KEY = openrouter_key

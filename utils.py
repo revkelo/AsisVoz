@@ -7,8 +7,8 @@ CLAVE_FIJA = b'K9TOUzAY5sQWnrsMfSrSWS9MD9KTv6c_Btf5n65_1Lc='
 fernet = Fernet(CLAVE_FIJA)
 RUTA_ARCHIVO = "config.json.cif"
 # ------------------ VARIABLES GLOBALES ------------------
-OPENROUTER_API_KEY = None
-DEEPGRAM_API_KEY = None
+OPENROUTER_API_KEY = ""
+DEEPGRAM_API_KEY = ""
 
 # ------------------ FUNCIONES API KEYS ------------------
 
@@ -80,8 +80,16 @@ def descifrar_y_extraer_claves():
         descifrado = fernet.decrypt(datos_cifrados)
         datos_json = json.loads(descifrado.decode("utf-8"))
 
-        OPENROUTER_API_KEY = datos_json.get("openrouter_api_key")
-        DEEPGRAM_API_KEY = datos_json.get("deepgram_api_key")
+        openrouter = datos_json.get("openrouter_api_key")
+        deepgram = datos_json.get("deepgram_api_key")
+
+    # Validar que no estén vacías
+        if not openrouter or not deepgram:
+            print("⚠️ Las claves están vacías o incompletas.")
+            return None
+
+        OPENROUTER_API_KEY = openrouter
+        DEEPGRAM_API_KEY = deepgram
 
         return {
             "openrouter_api_key": OPENROUTER_API_KEY,
