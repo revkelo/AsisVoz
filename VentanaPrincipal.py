@@ -539,53 +539,23 @@ class AsisVozApp(TkinterDnD.Tk):
         if not self.selected_files:
             messagebox.showinfo("Sin archivos", "Primero selecciona archivos.")
             return
+        self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
 
-        # Deshabilitar inmediatamente el botón
-        self.btn_transcribir.configure(state="disabled")
-        self.update_idletasks()
-
-        try:
-            carpeta_destino = filedialog.askdirectory(
-                title="Selecciona una carpeta para guardar el PDF"
-            )
-
-            if not carpeta_destino:
-                messagebox.showinfo("Cancelado", "No se seleccionó ninguna carpeta.")
-                return
-
-            nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
-
-            nombre_base = (nombre_base[:70] + '...') if len(nombre_base) > 50 else nombre_base
-            self.nombre_pdf = os.path.join(carpeta_destino, f"{nombre_base}.pdf")
-
-
-            self.btn_transcribir.configure(text="Transcribiendo...")
-
-            def tarea():
-                try:
-                    ruta = self.selected_files[0]
-                    self.transcriptor.transcribir_audio(ruta, self.nombre_pdf)
-                    self._mostrar_aviso_banner(f"🎧 Transcribiendo: {os.path.basename(ruta)}")
-                    self.after(0, self._transcripcion_exitosa)
-                except Exception as e:
-                    self.after(0, lambda: messagebox.showerror("Error", str(e)))
-                finally:
-                    self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
-
-            threading.Thread(target=tarea, daemon=True).start()
-        except Exception as e:
-            messagebox.showerror("Error", f"Ocurrió un error: {e}")
-
+        # Solicitar al usuario una carpeta para guardar el PDF
+        carpeta_destino = filedialog.askdirectory(
+            title="Selecciona una carpeta para guardar el PDF"
+        )
 
         if not carpeta_destino:
             messagebox.showinfo("Cancelado", "No se seleccionó ninguna carpeta.")
             return
 
-        # Crear nombre del PDF usando el nombre del primer archivo de audio
         nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
+
+        nombre_base = (nombre_base[:70] + '...') if len(nombre_base) > 50 else nombre_base
         self.nombre_pdf = os.path.join(carpeta_destino, f"{nombre_base}.pdf")
             
-        self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
+        
 
         def tarea():
             try:
