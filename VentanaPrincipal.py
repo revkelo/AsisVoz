@@ -190,6 +190,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Bind para actualizar el chat cuando se redimensiona la ventana
         self.bind("<Configure>", self._on_window_resize)
+        self._inicializar_chat_responsive()
 
     def _limpiar_respuesta_openrouter(self, texto):
         """
@@ -217,25 +218,41 @@ class AsisVozApp(TkinterDnD.Tk):
     def _on_window_resize(self, event):
         """Actualiza el wraplength de los mensajes cuando se redimensiona la ventana"""
         if event.widget == self:
-            # Obtener el ancho actual del área de chat
-            self.after(10, self._update_message_wraplength)
+            # Usar un delay más largo para asegurar que el layout se haya actualizado
+            self.after(100, self._update_message_wraplength)
 
     def _update_message_wraplength(self):
         """Actualiza el wraplength de todos los mensajes existentes"""
         try:
-            # Calcular el nuevo wraplength basado en el ancho del chat_area
+            # Forzar actualización del layout
+            self.chat_area.update_idletasks()
+            
+            # Obtener el ancho real del área de chat
             chat_width = self.chat_area.winfo_width()
-            if chat_width > 100:  # Evitar valores muy pequeños
-                new_wraplength = max(250, chat_width - 100)  # Margen de 100px, mínimo 250px
-                
-                # Actualizar todos los labels existentes
-                for widget in self.chat_area.winfo_children():
-                    if isinstance(widget, ctk.CTkFrame):
-                        for child in widget.winfo_children():
-                            if isinstance(child, ctk.CTkLabel):
-                                child.configure(wraplength=new_wraplength)
-        except:
-            pass  # En caso de error, continúa sin actualizar
+            
+            # Si el ancho es muy pequeño, usar el ancho de la ventana como referencia
+            if chat_width < 200:
+                window_width = self.winfo_width()
+                # Estimar el ancho del chat basado en el ancho de la ventana
+                # Considerando que el panel izquierdo ocupa aproximadamente 370px
+                chat_width = max(300, window_width - 450)
+            
+            # Calcular wraplength con margen más conservador
+            new_wraplength = max(200, chat_width - 150)
+            
+            # Actualizar todos los labels existentes
+            for widget in self.chat_area.winfo_children():
+                if isinstance(widget, ctk.CTkFrame):
+                    # Buscar el frame de la burbuja dentro del contenedor
+                    for container_child in widget.winfo_children():
+                        if isinstance(container_child, ctk.CTkFrame):
+                            # Buscar el label dentro de la burbuja
+                            for bubble_child in container_child.winfo_children():
+                                if isinstance(bubble_child, ctk.CTkLabel):
+                                    bubble_child.configure(wraplength=new_wraplength)
+        except Exception as e:
+            print(f"Error actualizando wraplength: {e}")
+
 
     def obtener_balance_deepgram(self) -> str:
         """
@@ -601,14 +618,18 @@ class AsisVozApp(TkinterDnD.Tk):
         """
         bubble_fg = "#d9eaff" if remitente == "usuario" else "#f1f1f1"
         
-        # Obtener el ancho actual del chat_area
-        self.chat_area.update_idletasks()  # Asegurar que las dimensiones estén actualizadas
+        # Obtener el ancho actual del chat_area con múltiples intentos
+        self.chat_area.update_idletasks()
         chat_width = self.chat_area.winfo_width()
-        if chat_width <= 100:  # Si aún no se ha inicializado
-            chat_width = 500  # Valor por defecto más grande
         
-        # Calcular wraplength dinámicamente con más margen
-        wraplength = max(250, chat_width - 120)  # Margen de 120px, mínimo 250px
+        # Si el ancho no es válido, usar el ancho de la ventana como referencia
+        if chat_width <= 100:
+            window_width = self.winfo_width()
+            # Estimar el ancho del chat considerando el panel izquierdo (~370px) y márgenes
+            chat_width = max(300, window_width - 450)
+        
+        # Calcular wraplength dinámicamente con margen más conservador
+        wraplength = max(200, chat_width - 150)
 
         # Frame contenedor para cada mensaje
         container_frame = ctk.CTkFrame(self.chat_area, fg_color="transparent")
@@ -653,3 +674,7 @@ class AsisVozApp(TkinterDnD.Tk):
         # Forzamos el scroll al fondo
         self.after(50, lambda: self.chat_area._parent_canvas.yview_moveto(1.0))
         return frame_burbuja
+    # Método adicional para recalcular wraplength cuando el chat se inicializa
+    def _inicializar_chat_responsive(self):
+        """Método para llamar después de que la ventana esté completamente inicializada"""
+        self.after(500, self._update_message_wraplength)
