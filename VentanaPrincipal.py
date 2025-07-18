@@ -359,20 +359,21 @@ class AsisVozApp(TkinterDnD.Tk):
                 )
 
     def _abrir_transcripcion_desde_historial(self, ruta_pdf):
-        """
-        Abre un PDF desde el historial.
-        """
         if not os.path.exists(ruta_pdf):
             messagebox.showerror("Error", f"No se encontró el archivo:\n{ruta_pdf}")
             return
 
-        sistema = platform.system()
-        if sistema == "Windows":
-            os.startfile(ruta_pdf)
-        elif sistema == "Darwin":
-            subprocess.call(["open", ruta_pdf])
-        else:
-            subprocess.call(["xdg-open", ruta_pdf])
+        try:
+            sistema = platform.system()
+            if sistema == "Windows":
+                os.startfile(ruta_pdf)
+            elif sistema == "Darwin":
+                subprocess.call(["open", ruta_pdf])
+            else:
+                subprocess.call(["xdg-open", ruta_pdf])
+        except Exception as e:
+            messagebox.showerror("Error al abrir archivo", f"No se pudo abrir:\n{ruta_pdf}\n\n{e}")
+
 
     def _on_send_based_on_switch(self):
         if self.use_pdf_switch.get() == 1:
@@ -572,6 +573,8 @@ class AsisVozApp(TkinterDnD.Tk):
                     self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
 
             threading.Thread(target=tarea, daemon=True).start()
+        except Exception as e:
+            messagebox.showerror("Error", f"Ocurrió un error: {e}")
 
 
         if not carpeta_destino:
