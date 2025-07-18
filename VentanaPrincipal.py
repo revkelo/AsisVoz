@@ -554,6 +554,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
         nombre_base = (nombre_base[:70] + '...') if len(nombre_base) > 50 else nombre_base
         self.nombre_pdf = os.path.join(carpeta_destino, f"{nombre_base}.pdf")
+        self.btn_transcribir.configure(text="Transcribir", state="enable")
             
         
 
@@ -564,7 +565,7 @@ class AsisVozApp(TkinterDnD.Tk):
                 self._mostrar_aviso_banner(f"🎧 Transcribiendo: {os.path.basename(ruta)}")
                 self.after(0, self._transcripcion_exitosa)
             except Exception as e:
-                self.after(0, lambda: messagebox.showerror("Error", str(e)))
+                messagebox.showerror("Error", str(e))
             finally:
                 self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
         threading.Thread(target=tarea, daemon=True).start()
