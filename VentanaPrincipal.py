@@ -487,9 +487,11 @@ class AsisVozApp(TkinterDnD.Tk):
                 messagebox.showinfo("Cancelado", "No se seleccionó ninguna carpeta.")
                 return
 
-            # Crear nombre del PDF usando el nombre del primer archivo de audio
             nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
+
+            nombre_base = (nombre_base[:70] + '...') if len(nombre_base) > 50 else nombre_base
             self.nombre_pdf = os.path.join(carpeta_destino, f"{nombre_base}.pdf")
+
 
             self.btn_transcribir.configure(text="Transcribiendo...")
 
