@@ -184,6 +184,17 @@ class AsisVozApp(TkinterDnD.Tk):
             height=32,
             command=self._on_send_based_on_switch
         ).pack(side="left")
+        
+        self.historial_archivo = "historial.txt"
+        self.historial_transcripciones = self._cargar_historial()
+
+        # Menú superior
+        menubar = tk.Menu(self)
+        self.config(menu=menubar)
+
+        self.historial_menu = tk.Menu(menubar, tearoff=0)
+        self._actualizar_menu_historial()
+        menubar.add_cascade(label="Historial", menu=self.historial_menu)
 
         # Actualizar binding del <Return>
         self.entry_message.bind("<Return>", lambda event: self._on_send_based_on_switch())
@@ -305,6 +316,63 @@ class AsisVozApp(TkinterDnD.Tk):
     def _on_switch_toggle(self):
         if self.use_pdf_switch.get() == 0:
             self.pdf_path = None  # limpiar si desactiva
+
+
+    def _cargar_historial(self):
+        """
+        Carga el historial desde historial.txt y devuelve una lista de rutas.
+        """
+        if not os.path.exists(self.historial_archivo):
+            return []
+        with open(self.historial_archivo, "r", encoding="utf-8") as f:
+            lineas = [line.strip() for line in f.readlines() if line.strip()]
+        return lineas[-20:]  # Solo las últimas 20
+
+    def _guardar_en_historial(self, ruta_pdf):
+        """
+        Guarda una nueva transcripción y actualiza el menú.
+        """
+        # Añadir al historial en memoria
+        self.historial_transcripciones.append(ruta_pdf)
+        self.historial_transcripciones = self.historial_transcripciones[-20:]
+
+        # Guardar todo en el archivo (manteniendo persistencia completa)
+        with open(self.historial_archivo, "a", encoding="utf-8") as f:
+            f.write(ruta_pdf + "\n")
+
+        # Actualizar menú
+        self._actualizar_menu_historial()
+
+    def _actualizar_menu_historial(self):
+        """
+        Refresca el menú "Historial" con las últimas transcripciones.
+        """
+        self.historial_menu.delete(0, tk.END)
+        if not self.historial_transcripciones:
+            self.historial_menu.add_command(label="(Sin historial)", state="disabled")
+        else:
+            for ruta in reversed(self.historial_transcripciones):  # Lo más reciente arriba
+                nombre = os.path.basename(ruta)
+                self.historial_menu.add_command(
+                    label=nombre,
+                    command=lambda r=ruta: self._abrir_transcripcion_desde_historial(r)
+                )
+
+    def _abrir_transcripcion_desde_historial(self, ruta_pdf):
+        """
+        Abre un PDF desde el historial.
+        """
+        if not os.path.exists(ruta_pdf):
+            messagebox.showerror("Error", f"No se encontró el archivo:\n{ruta_pdf}")
+            return
+
+        sistema = platform.system()
+        if sistema == "Windows":
+            os.startfile(ruta_pdf)
+        elif sistema == "Darwin":
+            subprocess.call(["open", ruta_pdf])
+        else:
+            subprocess.call(["xdg-open", ruta_pdf])
 
     def _on_send_based_on_switch(self):
         if self.use_pdf_switch.get() == 1:
@@ -471,10 +539,40 @@ class AsisVozApp(TkinterDnD.Tk):
             messagebox.showinfo("Sin archivos", "Primero selecciona archivos.")
             return
 
-        # Solicitar al usuario una carpeta para guardar el PDF
-        carpeta_destino = filedialog.askdirectory(
-            title="Selecciona una carpeta para guardar el PDF"
-        )
+        # Deshabilitar inmediatamente el botón
+        self.btn_transcribir.configure(state="disabled")
+        self.update_idletasks()
+
+        try:
+            carpeta_destino = filedialog.askdirectory(
+                title="Selecciona una carpeta para guardar el PDF"
+            )
+
+            if not carpeta_destino:
+                messagebox.showinfo("Cancelado", "No se seleccionó ninguna carpeta.")
+                return
+
+            nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
+
+            nombre_base = (nombre_base[:70] + '...') if len(nombre_base) > 50 else nombre_base
+            self.nombre_pdf = os.path.join(carpeta_destino, f"{nombre_base}.pdf")
+
+
+            self.btn_transcribir.configure(text="Transcribiendo...")
+
+            def tarea():
+                try:
+                    ruta = self.selected_files[0]
+                    self.transcriptor.transcribir_audio(ruta, self.nombre_pdf)
+                    self._mostrar_aviso_banner(f"🎧 Transcribiendo: {os.path.basename(ruta)}")
+                    self.after(0, self._transcripcion_exitosa)
+                except Exception as e:
+                    self.after(0, lambda: messagebox.showerror("Error", str(e)))
+                finally:
+                    self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
+
+            threading.Thread(target=tarea, daemon=True).start()
+
 
         if not carpeta_destino:
             messagebox.showinfo("Cancelado", "No se seleccionó ninguna carpeta.")
@@ -499,6 +597,7 @@ class AsisVozApp(TkinterDnD.Tk):
         threading.Thread(target=tarea, daemon=True).start()
 
     def _transcripcion_exitosa(self):
+        self._guardar_en_historial(self.nombre_pdf)
         messagebox.showinfo("Éxito", "Transcripción completada.")
         self._mostrar_aviso_banner("✅ Transcripción terminada")
 
