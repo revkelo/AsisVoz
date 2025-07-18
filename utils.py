@@ -31,6 +31,22 @@ def validar_api_key_deepgram(api_key):
         return False
 
 
+def cifrar_archivo(path_entrada, path_salida=None):
+    """
+    Cifra un archivo con Fernet y lo guarda con extensión .cif.
+    """
+    try:
+        with open(path_entrada, "rb") as f:
+            datos = f.read()
+        cifrado = fernet.encrypt(datos)
+        if not path_salida:
+            path_salida = path_entrada + ".cif"
+        with open(path_salida, "wb") as f:
+            f.write(cifrado)
+        print(f"✅ Archivo cifrado guardado en: {path_salida}")
+    except Exception as e:
+        print(f"❌ Error al cifrar: {e}")
+
 def verificar_openrouter_key(api_key: str) -> bool:
     """
     Verifica si la clave API de OpenRouter es válida.
