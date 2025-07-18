@@ -1,12 +1,11 @@
+import os
 import customtkinter as ctk
 import tkinter as tk  # Necesario para Menu
 from tkinter import messagebox
 from VentanaKeys import VentanaLicencia
 from VentanaPrincipal import AsisVozApp
 import utils  
-
-
-
+from PIL import Image
 
 
 # Configuración del tema
@@ -174,6 +173,18 @@ def crear_ventana_principal():
     )
     titulo_label.pack(pady=(40, 30))
 
+      # Imagen
+    try:
+        ruta_imagen = os.path.join("media", "icono.png")
+        image = Image.open(ruta_imagen).resize((110, 110))
+        ctk_img = ctk.CTkImage(light_image=image, dark_image=image, size=(110, 110))
+        label_img = ctk.CTkLabel(main_frame, image=ctk_img, text="")
+        label_img.image = ctk_img
+        label_img.pack(pady=(0, 15))
+    except Exception as e:
+        print(f"❌ Error al cargar imagen: {e}")
+    
+
     # Botón principal
     btn_iniciar = ctk.CTkButton(
         main_frame,
@@ -183,7 +194,7 @@ def crear_ventana_principal():
         height=60,
         command=lambda: iniciar_asisvoz(root)
     )
-    btn_iniciar.pack(pady=20)
+    btn_iniciar.pack(pady=18)
 
     # Info
     info_label = ctk.CTkLabel(
@@ -193,7 +204,8 @@ def crear_ventana_principal():
         text_color="gray"
     )
     info_label.pack(pady=(10, 20))
-    
+
+     
     root.resizable(False, False)
 
     root.mainloop()
