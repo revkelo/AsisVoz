@@ -146,7 +146,7 @@ def crear_ventana_principal():
   
 
     root = ctk.CTk()
-    root.title("App Principal")
+    root.title("AsisVoz")
     ancho_ventana, alto_ventana = 600, 400
     centrar_ventana(root, ancho_ventana, alto_ventana)
 
@@ -165,13 +165,7 @@ def crear_ventana_principal():
     main_frame = ctk.CTkFrame(root)
     main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-    # Título
-    titulo_label = ctk.CTkLabel(
-        main_frame, 
-        text="AsisVoz - Asistente de Voz", 
-        font=ctk.CTkFont(size=24, weight="bold")
-    )
-    titulo_label.pack(pady=(40, 30))
+
 
       # Imagen
     try:
@@ -180,7 +174,7 @@ def crear_ventana_principal():
         ctk_img = ctk.CTkImage(light_image=image, dark_image=image, size=(110, 110))
         label_img = ctk.CTkLabel(main_frame, image=ctk_img, text="")
         label_img.image = ctk_img
-        label_img.pack(pady=(0, 15))
+        label_img.pack(pady=(50, 15))
     except Exception as e:
         print(f"❌ Error al cargar imagen: {e}")
     
