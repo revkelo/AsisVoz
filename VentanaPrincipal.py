@@ -15,6 +15,8 @@ import subprocess
 from PIL import Image
 import VentanaKeys
 
+
+
 import utils
 
 
@@ -31,7 +33,7 @@ class AsisVozApp(TkinterDnD.Tk):
         self.pdf_path = None
 
         self.title("AsisVoz")
-        self.geometry("1000x650")
+        self.geometry("1000x850")
         self.resizable(False, False)
         self.selected_files = []
         self._gif_frames = []

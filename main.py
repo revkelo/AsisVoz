@@ -4,6 +4,10 @@ from tkinter import messagebox
 from VentanaKeys import VentanaLicencia, cargar_keys
 from VentanaPrincipal import AsisVozApp
 import utils  # Importa la app principal
+from utils import descifrar_y_extraer_claves, verificar_openrouter_key, validar_api_key_deepgram
+from secure_storage import generar_clave_secreta, cargar_claves
+
+
 
 # Configuración del tema
 ctk.set_appearance_mode("system")
@@ -136,7 +140,7 @@ def iniciar_asisvoz(root):
     app.protocol("WM_DELETE_WINDOW", on_close)
     app.mainloop()
 
-def crear_ventana_principal():
+def crear_ventana_principal(deepgram_api_key, openrouter_api_key):
     cargar_keys()
 
     root = ctk.CTk()
@@ -192,4 +196,11 @@ def crear_ventana_principal():
     root.mainloop()
 
 if __name__ == "__main__":
-    crear_ventana_principal()
+
+    print("🔐 Descifrando archivo cifrado original...")
+    claves = descifrar_y_extraer_claves("config.json.cif")  # Devuelve dict con las claves
+
+    deepgram_api_key = claves.get("deepgram_api_key", "")
+    openrouter_api_key = claves.get("openrouter_api_key", "")
+
+    crear_ventana_principal(deepgram_api_key, openrouter_api_key)

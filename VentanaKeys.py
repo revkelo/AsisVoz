@@ -3,57 +3,54 @@ import os
 import requests
 import customtkinter as ctk
 from tkinter import messagebox
-from utils import validar_api_key_deepgram, verificar_openrouter_key
+from cryptography.fernet import Fernet
+from utils import (
+    CLAVE_FIJA,
+    validar_api_key_deepgram,
+    verificar_openrouter_key,
+    descifrar_y_extraer_claves
+    
+)
 
-CONFIG_FILE = "config2.json"
-keys_data = {
-    "deepgram_api_key": "",
-    "openrouter_api_key": ""
-}
+FERNET = Fernet(CLAVE_FIJA)
 
+# Constantes
+ARCHIVO_CLAVES = "config.json.cif"
+keys_data = {}
 
-# Obtener variable de interes
+# ✅ Valida ambas claves
+def validar_claves(deepgram_key, openrouter_key):
+    return validar_api_key_deepgram(deepgram_key) and verificar_openrouter_key(openrouter_key)
+
+def cargar_keys():
+        from utils import descifrar_y_extraer_claves
+        return descifrar_y_extraer_claves("config.json.cif")
+
+# ✅ Obtener project_id (no se usa ahora, pero útil si lo necesitas después)
 def obtener_project_id_deepgram(api_key):
     try:
-        headers = {
-            "Authorization": f"Token {api_key}"
-        }
+        headers = {"Authorization": f"Token {api_key}"}
         response = requests.get("https://api.deepgram.com/v1/projects", headers=headers)
         if response.status_code == 200:
             data = response.json()
-            # Tomamos el primer proyecto (o puedes ajustar para seleccionar uno específico)
-            project_id = data["projects"][0]["project_id"]
-            return project_id
+            return data["projects"][0]["project_id"]
         else:
             print(f"Error al obtener project_id: {response.status_code} - {response.text}")
     except Exception as e:
         print(f"Excepción al obtener project_id: {e}")
     return None
 
-# Cargar claves desde el archivo
-def cargar_keys():
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, "r") as f:
-                data = json.load(f)
-                keys_data.update(data)
-        except Exception as e:
-            messagebox.showerror("Error", f"No se pudo leer el archivo de configuración:\n{e}")
+# ✅ Carga las claves descifradas al iniciar
+claves_temp = descifrar_y_extraer_claves(ARCHIVO_CLAVES)
+if claves_temp:
+    keys_data["deepgram_api_key"] = claves_temp.get("deepgram_api_key", "")
+    keys_data["openrouter_api_key"] = claves_temp.get("openrouter_api_key", "")
 
-# Guardar claves en el archivo
-def guardar_keys_en_archivo():
-    try:
-        with open(CONFIG_FILE, "w") as f:
-            json.dump(keys_data, f, indent=4)
-    except Exception as e:
-        messagebox.showerror("Error", f"No se pudo guardar el archivo de configuración:\n{e}")
-
-
-    
-# Ventana para registrar licencias
+# ✅ Ventana principal para ingresar claves
 class VentanaLicencia(ctk.CTkToplevel):
     def __init__(self, root):
         super().__init__(root)
+
         self.title("Registrar Licencia")
         self.geometry("500x250")
         self.resizable(False, False)
@@ -111,22 +108,26 @@ class VentanaLicencia(ctk.CTkToplevel):
         deepgram_key = self.entry_deepgram.get().strip()
         openrouter_key = self.entry_openrouter.get().strip()
 
-        # Validar claves antes de guardar
-        if not validar_api_key_deepgram(deepgram_key):
-            messagebox.showerror("Clave inválida", "La clave de Deepgram no es válida o ha sido rechazada.")
+        if not deepgram_key or not openrouter_key:
+            messagebox.showerror("Error", "Por favor ingresa ambas claves.")
             return
 
-        if not verificar_openrouter_key(openrouter_key):
-            messagebox.showerror("Clave inválida", "La clave de OpenRouter no es válida o ha sido rechazada.")
+        if not validar_claves(deepgram_key, openrouter_key):
+            messagebox.showerror("Error", "Alguna de las claves no es válida.")
             return
 
-
-        # Si es válida, guardamos
+        # Guardar en memoria
         keys_data["deepgram_api_key"] = deepgram_key
         keys_data["openrouter_api_key"] = openrouter_key
-        guardar_keys_en_archivo()
-        messagebox.showinfo("Guardado", "Las claves han sido guardadas correctamente.")
-        self.destroy()
+
+        # ✅ Guardar cifrado
+        exito = guardar_claves_cifradas(ARCHIVO_CLAVES, openrouter_key, deepgram_key)
+        if exito:
+            messagebox.showinfo("Guardado", "Las claves han sido guardadas correctamente.")
+            self.destroy()
+        else:
+            messagebox.showerror("Error", "No se pudo guardar el archivo cifrado.")
+
 
     def center_window(self):
         self.update_idletasks()
@@ -135,3 +136,24 @@ class VentanaLicencia(ctk.CTkToplevel):
         x = (self.winfo_screenwidth() // 2) - (width // 2)
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f"+{x}+{y}")
+
+def guardar_claves_cifradas(path_salida, openrouter_key, deepgram_key):
+    try:
+        # Construimos el diccionario que queremos guardar
+        datos = {
+            "openrouter_api_key": openrouter_key,
+            "deepgram_api_key": deepgram_key
+        }
+
+        # Serializamos y ciframos con la CLAVE_FIJA
+        datos_json = json.dumps(datos).encode("utf-8")
+        datos_cifrados = FERNET.encrypt(datos_json)
+
+        # Sobrescribimos el archivo original cifrado
+        with open(path_salida, "wb") as f:
+            f.write(datos_cifrados)
+
+        return True
+    except Exception as e:
+        print(f"❌ Error al guardar claves cifradas: {e}")
+        return False

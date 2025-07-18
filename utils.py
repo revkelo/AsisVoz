@@ -90,3 +90,24 @@ def descifrar_y_extraer_claves(path_cifrado):
     except Exception as e:
         print(f"❌ Error al descifrar o extraer claves: {e}")
         return None
+
+def guardar_claves_cifradas(path_salida, openrouter_key, deepgram_key):
+    """
+    Cifra las claves API y las guarda como un archivo .cif
+    """
+    try:
+        claves_dict = {
+            "openrouter_api_key": openrouter_key,
+            "deepgram_api_key": deepgram_key
+        }
+        datos_json = json.dumps(claves_dict).encode("utf-8")
+        datos_cifrados = fernet.encrypt(datos_json)
+
+        with open(path_salida, "wb") as f:
+            f.write(datos_cifrados)
+
+        print(f"✅ Claves cifradas guardadas en: {path_salida}")
+        return True
+    except Exception as e:
+        print(f"❌ Error al guardar claves cifradas: {e}")
+        return False
