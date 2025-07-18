@@ -112,23 +112,16 @@ def guardar_claves_cifradas( openrouter_key, deepgram_key):
         print(f"❌ Error al guardar claves cifradas: {e}")
         return False
 
-def guardar_claves_cifradas( openrouter_key, deepgram_key):
+# ✅ Obtener project_id (no se usa ahora, pero útil si lo necesitas después)
+def obtener_project_id_deepgram(api_key):
     try:
-        # Construimos el diccionario que queremos guardar
-        datos = {
-            "openrouter_api_key": openrouter_key,
-            "deepgram_api_key": deepgram_key
-        }
-
-        # Serializamos y ciframos con la CLAVE_FIJA
-        datos_json = json.dumps(datos).encode("utf-8")
-        datos_cifrados = fernet.encrypt(datos_json)
-
-        # Sobrescribimos el archivo original cifrado
-        with open(RUTA_ARCHIVO, "wb") as f:
-            f.write(datos_cifrados)
-
-        return True
+        headers = {"Authorization": f"Token {api_key}"}
+        response = requests.get("https://api.deepgram.com/v1/projects", headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            return data["projects"][0]["project_id"]
+        else:
+            print(f"Error al obtener project_id: {response.status_code} - {response.text}")
     except Exception as e:
-        print(f"❌ Error al guardar claves cifradas: {e}")
-        return False
+        print(f"Excepción al obtener project_id: {e}")
+    return None

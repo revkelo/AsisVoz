@@ -26,27 +26,29 @@ import utils
 
 
 class AsisVozApp(TkinterDnD.Tk):
-    def __init__(self):
+    def __init__(self,openrouter_key, deepgram_key):
         super().__init__()
+        
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
         self.pdf_path = None
-
         self.title("AsisVoz")
         self.geometry("1000x850")
+        self.centrar_ventana()
         self.resizable(False, False)
         self.selected_files = []
         self._gif_frames = []
         self._gif_size = (200, 200)
         gif = Image.open("./media/cargando.gif")
         self.auxiliar = ""
+        
 
     
 
-        self.deepgram_api_key = utils.DEEPGRAM_API_KEY
-        self.openrouter_api_key = utils.OPENROUTER_API_KEY
-        print(self.deepgram_api_key)
-        print(self.openrouter_api_key)
+        self.deepgram_api_key = deepgram_key
+        self.openrouter_api_key = openrouter_key
+    
+
 
         self.router_client = OpenRouterClient(self.openrouter_api_key)
         self.transcriptor = DeepgramPDFTranscriber(self.deepgram_api_key)
@@ -54,21 +56,6 @@ class AsisVozApp(TkinterDnD.Tk):
         main_frame = ctk.CTkFrame(self, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-        # Crear barra de menú
-        menubar = tk.Menu(self)
-
-        # Crear un menú desplegable
-        menu_opciones = tk.Menu(menubar, tearoff=0)
-        menu_opciones.add_command(label="Cambiar API Key de Deepgram", command=self._cambiar_api_deepgram)
-        menu_opciones.add_command(label="Cambiar API de OpenRouter", command=self._cambiar_api_openrouter)
-        menu_opciones.add_separator()
-        #menu_opciones.add_command(label="Salir", command=self.quit)
-
-        # Añadir el menú desplegable a la barra de menú
-        menubar.add_cascade(label="Opciones", menu=menu_opciones)
-
-        # Configurar la ventana para usar esta barra de menú
-        self.config(menu=menubar)
 
         # ─── LEFT (Audio + Transcripción) ───────────────────────────────────
         left_frame = ctk.CTkFrame(main_frame, width=320, fg_color="transparent")
@@ -251,6 +238,8 @@ class AsisVozApp(TkinterDnD.Tk):
         self.entry_message.bind("<Return>", lambda event: self._on_send_based_on_switch())
         
 
+        
+
 
 
     def obtener_balance_deepgram(self) -> str:
@@ -259,10 +248,10 @@ class AsisVozApp(TkinterDnD.Tk):
             y muestra el amount en USD y COP.
             """
             # Obtener project_id
-            self.aux = VentanaKeys.obtener_project_id_deepgram(VentanaKeys.keys_data.get("deepgram_api_key", ""))
+            self.aux = utils.obtener_project_id_deepgram(self.deepgram_api_key)
             url = f"https://api.deepgram.com/v1/projects/{self.aux}/balances"
             headers = {
-                "Authorization": f"Token {VentanaKeys.keys_data.get('deepgram_api_key', '')}"
+                "Authorization": f"Token {self.deepgram_api_key}"
             }
 
             # Tasa de conversión (puedes actualizarla manualmente si deseas)
@@ -495,102 +484,15 @@ class AsisVozApp(TkinterDnD.Tk):
         self.selected_files.remove(ruta)
         self._actualizar_lista_archivos()
 
-    def _cambiar_api_deepgram(self):
-        ventana = tk.Toplevel()
-        ventana.title("Cambiar API Key de Deepgram")
-        ventana.geometry("400x150")
-        ventana.resizable(False, False)
-
-        # Centrar ventana
-        ventana.update_idletasks()
-        ancho, alto = 400, 150
-        x = (ventana.winfo_screenwidth() // 2) - (ancho // 2)
-        y = (ventana.winfo_screenheight() // 2) - (alto // 2)
-        ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
-
-        # Instrucciones
-        tk.Label(ventana, text="Selecciona un archivo .txt con tu API key:").pack(pady=(20, 10))
-
-        def seleccionar_archivo():
-            ruta = filedialog.askopenfilename(
-                title="Selecciona un archivo de texto",
-                filetypes=[("Archivos de texto", "*.txt")]
-            )
-
-            if not ruta:
-                return
-
-            try:
-                with open(ruta, "r", encoding="utf-8") as f:
-                    nueva_key = f.read().strip()
-
-                if not nueva_key:
-                    messagebox.showerror("Error", "El archivo está vacío.", parent=ventana)
-                    return
-
-                self.deepgram_api_key = nueva_key
-                self.transcriptor = DeepgramPDFTranscriber(self.deepgram_api_key)
-                self.config_data["deepgram_api_key"] = nueva_key
-                #guardar_config(self.config_data)
-
-                messagebox.showinfo("Éxito", "API key de Deepgram actualizada.", parent=ventana)
-                ventana.destroy()
-
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo leer el archivo:\n{e}", parent=ventana)
-
-        # Botón para seleccionar archivo
-        tk.Button(ventana, text="Seleccionar archivo", command=seleccionar_archivo).pack(pady=(0, 20))
-
-
-    def _cambiar_api_openrouter(self):
-        ventana = tk.Toplevel()
-        ventana.title("Cambiar API Key de OpenRouter")
-        ventana.geometry("400x150")
-        ventana.resizable(False, False)
-
-        # Centrar ventana
-        ventana.update_idletasks()
-        ancho, alto = 400, 150
-        x = (ventana.winfo_screenwidth() // 2) - (ancho // 2)
-        y = (ventana.winfo_screenheight() // 2) - (alto // 2)
-        ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
-
-        tk.Label(ventana, text="Selecciona un archivo .txt con tu API key:").pack(pady=(20, 10))
-
-        def seleccionar_archivo():
-            ruta = filedialog.askopenfilename(
-                title="Selecciona un archivo de texto",
-                filetypes=[("Archivos de texto", "*.txt")]
-            )
-
-            if not ruta:
-                return
-
-            try:
-                with open(ruta, "r", encoding="utf-8") as f:
-                    nueva_key = f.read().strip()
-
-                if not nueva_key:
-                    messagebox.showerror("Error", "El archivo está vacío.", parent=ventana)
-                    return
-
-                # Validación opcional de API key (por ejemplo, OpenRouter usa claves largas alfanuméricas)
-                if len(nueva_key) < 20:
-                    messagebox.showwarning("Advertencia", "La clave parece demasiado corta. ¿Es válida?", parent=ventana)
-
-                self.openrouter_api_key = nueva_key
-                self.router_client = OpenRouterClient(self.openrouter_api_key)
-                self.config_data["openrouter_api_key"] = nueva_key
-                #guardar_config(self.config_data)
-
-                messagebox.showinfo("Éxito", "API key de OpenRouter actualizada.", parent=ventana)
-                ventana.destroy()
-
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo leer el archivo:\n{e}", parent=ventana)
-
-        tk.Button(ventana, text="Seleccionar archivo", command=seleccionar_archivo).pack(pady=(0, 20))
+    def centrar_ventana(self):
+        self.update_idletasks()  # Asegura que geometry() tenga valores actualizados
+        ancho_ventana = self.winfo_width()
+        alto_ventana = self.winfo_height()
+        ancho_pantalla = self.winfo_screenwidth()
+        alto_pantalla = self.winfo_screenheight()
+        x = (ancho_pantalla // 2) - (ancho_ventana // 2)
+        y = (alto_pantalla // 2) - (alto_ventana // 2)
+        self.geometry(f"+{x}+{y}")
 
 
     # ──────────────────────────────────────────────────────────────────────

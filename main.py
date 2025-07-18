@@ -133,7 +133,7 @@ def centrar_ventana(ventana, ancho, alto):
 
 def iniciar_asisvoz(root):
     root.withdraw()
-    app = AsisVozApp()
+    app = AsisVozApp(utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
     def on_close():
         app.destroy()
         root.deiconify()
