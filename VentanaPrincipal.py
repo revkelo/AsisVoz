@@ -152,8 +152,8 @@ class AsisVozApp(TkinterDnD.Tk):
             fg_color="white",
             corner_radius=10
         )
-        self.chat_area.pack(padx=10, pady=(0, 10), fill="both", expand=True)
-        self.chat_area.grid_columnconfigure(0, weight=1)
+        self.chat_area.pack(padx=15, pady=(0, 10), fill="both", expand=True)
+        self.chat_area.grid_columnconfigure(0, weight=1, minsize=300)  # Asegurar ancho mínimo
         self.chat_row = 0
 
         # Marco inferior con entrada de texto + botones de envío
@@ -191,6 +191,29 @@ class AsisVozApp(TkinterDnD.Tk):
         # Bind para actualizar el chat cuando se redimensiona la ventana
         self.bind("<Configure>", self._on_window_resize)
 
+    def _limpiar_respuesta_openrouter(self, texto):
+        """
+        Limpia la respuesta de OpenRouter eliminando los caracteres "###"
+        """
+        if not texto:
+            return ""
+        
+        # Eliminar todas las ocurrencias de "###"
+        texto_limpio = texto.replace("###", "")
+        
+        # Eliminar líneas vacías adicionales que puedan quedar
+        lineas = texto_limpio.split('\n')
+        lineas_filtradas = []
+        
+        for linea in lineas:
+            linea_stripped = linea.strip()
+            # Solo agregar la línea si no está vacía o si es necesaria para el formato
+            if linea_stripped or (lineas_filtradas and lineas_filtradas[-1].strip()):
+                lineas_filtradas.append(linea)
+        
+        # Unir las líneas y eliminar espacios en blanco excesivos al inicio y final
+        return '\n'.join(lineas_filtradas).strip()
+
     def _on_window_resize(self, event):
         """Actualiza el wraplength de los mensajes cuando se redimensiona la ventana"""
         if event.widget == self:
@@ -203,7 +226,7 @@ class AsisVozApp(TkinterDnD.Tk):
             # Calcular el nuevo wraplength basado en el ancho del chat_area
             chat_width = self.chat_area.winfo_width()
             if chat_width > 100:  # Evitar valores muy pequeños
-                new_wraplength = max(200, chat_width - 80)  # Margen de 80px
+                new_wraplength = max(250, chat_width - 100)  # Margen de 100px, mínimo 250px
                 
                 # Actualizar todos los labels existentes
                 for widget in self.chat_area.winfo_children():
@@ -492,6 +515,8 @@ class AsisVozApp(TkinterDnD.Tk):
         """
         try:
             respuesta_texto, _ = self.router_client.preguntar_texto(prompt)
+            # Limpiar la respuesta eliminando los "###"
+            respuesta_texto = self._limpiar_respuesta_openrouter(respuesta_texto)
         except Exception as e:
             respuesta_texto = f"Error al conectar con OpenRouter:\n{e}"
 
@@ -527,6 +552,8 @@ class AsisVozApp(TkinterDnD.Tk):
         """
         try:
             respuesta_texto, _ = self.router_client.preguntar_con_pdf(pdf_path, prompt)
+            # Limpiar la respuesta eliminando los "###"
+            respuesta_texto = self._limpiar_respuesta_openrouter(respuesta_texto)
         except Exception as e:
             respuesta_texto = f"Error al procesar PDF con OpenRouter:\n{e}"
 
@@ -551,37 +578,54 @@ class AsisVozApp(TkinterDnD.Tk):
         Luego fuerza el scroll para que siempre se vea el último mensaje.
         """
         bubble_fg = "#d9eaff" if remitente == "usuario" else "#f1f1f1"
-        text_anchor = "e" if remitente == "usuario" else "w"
-
+        
         # Obtener el ancho actual del chat_area
+        self.chat_area.update_idletasks()  # Asegurar que las dimensiones estén actualizadas
         chat_width = self.chat_area.winfo_width()
         if chat_width <= 100:  # Si aún no se ha inicializado
-            chat_width = 400  # Valor por defecto
+            chat_width = 500  # Valor por defecto más grande
         
-        # Calcular wraplength dinámicamente
-        wraplength = max(200, chat_width - 80)  # Margen de 80px, mínimo 200px
+        # Calcular wraplength dinámicamente con más margen
+        wraplength = max(250, chat_width - 120)  # Margen de 120px, mínimo 250px
+
+        # Frame contenedor para cada mensaje
+        container_frame = ctk.CTkFrame(self.chat_area, fg_color="transparent")
+        container_frame.grid(row=self.chat_row, column=0, padx=15, pady=5, sticky="ew")
+        
+        # Configurar el grid del contenedor
+        if remitente == "usuario":
+            container_frame.grid_columnconfigure(0, weight=1)  # Columna izquierda expandible
+            container_frame.grid_columnconfigure(1, weight=0)  # Columna derecha fija
+            bubble_column = 1
+            bubble_sticky = "e"
+        else:
+            container_frame.grid_columnconfigure(0, weight=0)  # Columna izquierda fija
+            container_frame.grid_columnconfigure(1, weight=1)  # Columna derecha expandible
+            bubble_column = 0
+            bubble_sticky = "w"
 
         # Creamos la burbuja sin ancho fijo
-        frame_burbuja = ctk.CTkFrame(self.chat_area, fg_color=bubble_fg, corner_radius=10)
+        frame_burbuja = ctk.CTkFrame(container_frame, fg_color=bubble_fg, corner_radius=10)
 
-        # Etiqueta interna con wraplength dinámico
+        # Etiqueta interna con wraplength dinámico y más padding
         label = ctk.CTkLabel(
             frame_burbuja,
             text=texto,
             wraplength=wraplength,
             justify="left",
-            font=ctk.CTkFont(size=12)
+            font=ctk.CTkFont(size=12),
+            anchor="w"  # Alineación a la izquierda dentro del label
         )
-        label.pack(padx=10, pady=5)
+        label.pack(padx=15, pady=10, fill="both", expand=True)  # Más padding
 
-        # Colocamos la burbuja en la fila correspondiente
+        # Colocamos la burbuja en la columna correspondiente
         frame_burbuja.grid(
-            row=self.chat_row,
-            column=0,
-            padx=10,
-            pady=2,
-            sticky=text_anchor  # 'e' si es usuario, 'w' si es bot
+            row=0,
+            column=bubble_column,
+            sticky=bubble_sticky,
+            padx=5
         )
+        
         self.chat_row += 1
 
         # Forzamos el scroll al fondo
