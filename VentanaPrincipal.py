@@ -13,16 +13,8 @@ import tkinter as tk
 import platform
 import subprocess
 from PIL import Image
-import VentanaKeys
-
-
 
 import utils
-
-
-
-
-
 
 
 class AsisVozApp(TkinterDnD.Tk):
@@ -37,9 +29,7 @@ class AsisVozApp(TkinterDnD.Tk):
         self.centrar_ventana()
         self.resizable(False, False)
         self.selected_files = []
-        self._gif_frames = []
-        self._gif_size = (200, 200)
-        gif = Image.open("./media/cargando.gif")
+
         self.auxiliar = ""
         
 
@@ -171,32 +161,9 @@ class AsisVozApp(TkinterDnD.Tk):
         )
 
         self.lbl_saldo.place(relx=0.96, rely=0.01, anchor="ne")
-        try:
-            index = 0
-            while True:
-                # 1) copiar, 2) convertir a RGBA, 3) escalar al tamaño deseado
-                frame = (
-                    gif.copy()
-                       .convert("RGBA")
-                       .resize(self._gif_size, Image.LANCZOS)
-                )
-                # 4) crear el PhotoImage y guardarlo
-                self._gif_frames.append(CTkImage(light_image=frame, size=self._gif_size))
 
-                index += 1
-                gif.seek(index)
-        except EOFError:
-            pass
         
-        self.lbl_gif = ctk.CTkLabel(
-            left_frame,
-            image=None,
-            width=self._gif_size[0],
-            height=self._gif_size[1],
-            fg_color="transparent",
-            text=""
-        )
-        self.lbl_gif.place_forget()
+
 
 
         self.chat_area.pack(padx=10, pady=(0, 10), fill="both", expand=True)
@@ -359,23 +326,7 @@ class AsisVozApp(TkinterDnD.Tk):
         # Eliminar el aviso después de X milisegundos
         self.after(duracion, aviso.destroy)
 
-    def _start_gif(self):
-        # en lugar de pack(), lo hacemos visible con place again
-        self.lbl_gif.place(relx=0.5, y=400, anchor="n")
-        self._gif_index = 0
-        self._animate_gif()
 
-    def _animate_gif(self):
-        frame = self._gif_frames[self._gif_index]
-        self.lbl_gif.configure(image=frame)
-        self._gif_index = (self._gif_index + 1) % len(self._gif_frames)
-        self._gif_job = self.after(100, self._animate_gif)  # 10 fps
-
-    def _stop_gif(self):
-        if hasattr(self, "_gif_job"):
-            self.after_cancel(self._gif_job)
-        # ocultar con place_forget()
-        self.lbl_gif.place_forget()
 
 
     def _crear_area_upload(self, contenedor):
@@ -528,7 +479,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
         def tarea():
             try:
-                self.after(0, self._start_gif)
+
                 ruta = self.selected_files[0]
                 self.transcriptor.transcribir_audio(ruta)
                 self._mostrar_aviso_banner(f"🎧 Transcribiendo: {os.path.basename(ruta)}")
@@ -536,7 +487,7 @@ class AsisVozApp(TkinterDnD.Tk):
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Error", str(e)))
             finally:
-                self.after(0, self._stop_gif)
+
                 self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
         threading.Thread(target=tarea, daemon=True).start()
 
