@@ -546,6 +546,9 @@ class AsisVozApp(TkinterDnD.Tk):
 
         self._agregar_mensaje("✔ Transcripción completada", remitente="bot")
         self.btn_abrir_transcripcion.pack(pady=(5, 0))
+        self.lbl_saldo.configure(
+            text=self.obtener_balance_deepgram()
+        )
 
     def _on_open_transcripcion(self):
 

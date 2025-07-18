@@ -118,6 +118,8 @@ def mostrar_ventana_registro_equipo(root):
             command=registrar
         )
         btn_registrar.pack(pady=20)
+         
+
         
         # Manejar el cierre de la ventana
         ventana_registro_equipo.protocol("WM_DELETE_WINDOW", cerrar_ventana)
@@ -130,6 +132,7 @@ def centrar_ventana(ventana, ancho, alto):
     x = (ventana.winfo_screenwidth() // 2) - (ancho // 2)
     y = (ventana.winfo_screenheight() // 2) - (alto // 2)
     ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
+    
 
 def iniciar_asisvoz(root):
     root.withdraw()
@@ -191,7 +194,7 @@ def crear_ventana_principal():
     )
     info_label.pack(pady=(10, 20))
     
-    
+    root.resizable(False, False)
 
     root.mainloop()
 
