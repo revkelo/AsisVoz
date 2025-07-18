@@ -163,7 +163,7 @@ class AsisVozApp(TkinterDnD.Tk):
         # Campo de texto
         self.entry_message = ctk.CTkEntry(
             frame_entry,
-            text_color="gray",
+            text_color="black",
             placeholder_text="Escribe un mensaje..."
         )
         self.entry_message.pack(side="left", fill="x", expand=True)
