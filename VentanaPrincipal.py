@@ -26,32 +26,30 @@ class AsisVozApp(TkinterDnD.Tk):
         self.pdf_path = None
         self.title("AsisVoz")
         self.geometry("1000x850")
+        self.minsize(800, 600)  # Tamaño mínimo de ventana
         self.centrar_ventana()
-        self.resizable(False, False)
+        self.resizable(True, True)  # Permitir redimensionar
         self.selected_files = []
 
         self.auxiliar = ""
         
 
-    
-
         self.deepgram_api_key = deepgram_key
         self.openrouter_api_key = openrouter_key
     
-
-
         self.router_client = OpenRouterClient(self.openrouter_api_key)
         self.transcriptor = DeepgramPDFTranscriber(self.deepgram_api_key)
+        
         # Marco principal
         main_frame = ctk.CTkFrame(self, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-
         # ─── LEFT (Audio + Transcripción) ───────────────────────────────────
-        left_frame = ctk.CTkFrame(main_frame, width=320, fg_color="transparent")
-        left_frame.pack(side="left", anchor="n", padx=(0, 30), fill="y")
+        left_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        left_frame.pack(side="left", anchor="n", padx=(0, 20), fill="y")
+        left_frame.configure(width=350)  # Ancho base pero flexible
 
-        # Título “Audio”
+        # Título "Audio"
         ctk.CTkLabel(
             left_frame,
             text="Audio",
@@ -70,12 +68,11 @@ class AsisVozApp(TkinterDnD.Tk):
         # Área punteada / contenedor para arrastrar o buscar
         upload_border = ctk.CTkFrame(
             left_frame,
-            width=300,
             height=160,
             border_width=1,
             border_color="#aaaaaa"
         )
-        upload_border.pack(pady=(0, 10))
+        upload_border.pack(pady=(0, 10), fill="x")  # fill="x" para que se adapte
         upload_border.pack_propagate(False)
         self._crear_area_upload(upload_border)
 
@@ -83,72 +80,60 @@ class AsisVozApp(TkinterDnD.Tk):
         self.archivos_frame = ctk.CTkFrame(left_frame, fg_color="white", corner_radius=10)
         self.archivos_frame.pack(pady=(5, 20), fill="x")
 
-        # Botón “Transcribir”
+        # Botón "Transcribir"
         self.btn_transcribir = ctk.CTkButton(
             left_frame,
             text="Transcribir",
-            width=200,
             height=35,
             command=self._on_transcribir
         )
-        self.btn_transcribir.pack(pady=(10, 5))
+        self.btn_transcribir.pack(pady=(10, 5), fill="x")
 
-        # Botón “Abrir transcripción” (oculto inicialmente)
+        # Botón "Abrir transcripción" (oculto inicialmente)
         self.btn_abrir_transcripcion = ctk.CTkButton(
             left_frame,
             text="Abrir transcripción generada",
-            width=200,
             height=35,
             command=self._on_open_transcripcion
         )
-        self.btn_abrir_transcripcion.pack(pady=(5, 0))
+        self.btn_abrir_transcripcion.pack(pady=(5, 0), fill="x")
         self.btn_abrir_transcripcion.pack_forget()
 
         # ─── RIGHT (Chatbot) ────────────────────────────────────────────────
         right_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         right_frame.pack(side="left", fill="both", expand=True)
 
+        # Frame del chat que se expande
         chat_frame = ctk.CTkFrame(
             right_frame,
-            width=620,            # ancho total del área de chat
-            height=580,
             border_width=1,
             border_color="#aaaaaa",
             corner_radius=15
         )
-        chat_frame.pack(anchor="n", padx=10, pady=(40, 10), fill="y")
-        chat_frame.pack_propagate(False)
+        chat_frame.pack(anchor="n", padx=10, pady=(40, 10), fill="both", expand=True)
 
         # Icono y título del chatbot
+        header_frame = ctk.CTkFrame(chat_frame, fg_color="transparent")
+        header_frame.pack(fill="x", padx=10, pady=(20, 10))
+        
         ctk.CTkLabel(
-            chat_frame,
+            header_frame,
             text="🤖",
             font=ctk.CTkFont(size=36)
-        ).pack(pady=(20, 5))
+        ).pack()
         ctk.CTkLabel(
-            chat_frame,
+            header_frame,
             text="Chatbot",
             font=ctk.CTkFont(size=16, weight="bold")
         ).pack()
         ctk.CTkLabel(
-            chat_frame,
+            header_frame,
             text="¡Hola! ¿Cómo puedo ayudarte hoy?",
             font=ctk.CTkFont(size=12),
-            wraplength=580,        # cabrá en 580 px
             justify="center"
-        ).pack(pady=(5, 10))
+        ).pack(pady=(5, 0))
         
-        
-
-        # Área scrollable para los mensajes (usa width=620)
-        self.chat_area = ctk.CTkScrollableFrame(
-            chat_frame,
-            width=620,
-            height=360,
-            fg_color="white",
-            corner_radius=10
-        )
-         # ─── SALDO EN ESQUINA SUPERIOR DERECHA ──────────────────────────────
+        # ─── SALDO EN ESQUINA SUPERIOR DERECHA ──────────────────────────────
         self.lbl_saldo = ctk.CTkLabel(
             self,
             text= self.obtener_balance_deepgram(),
@@ -159,15 +144,15 @@ class AsisVozApp(TkinterDnD.Tk):
             padx=5,
             pady=15
         )
-
         self.lbl_saldo.place(relx=0.96, rely=0.01, anchor="ne")
 
-        
-
-
-
+        # Área scrollable para los mensajes (se expande automáticamente)
+        self.chat_area = ctk.CTkScrollableFrame(
+            chat_frame,
+            fg_color="white",
+            corner_radius=10
+        )
         self.chat_area.pack(padx=10, pady=(0, 10), fill="both", expand=True)
-        # Ahora sólo definimos UNA columna (columna 0)
         self.chat_area.grid_columnconfigure(0, weight=1)
         self.chat_row = 0
 
@@ -182,7 +167,6 @@ class AsisVozApp(TkinterDnD.Tk):
             placeholder_text="Escribe un mensaje..."
         )
         self.entry_message.pack(side="left", fill="x", expand=True)
-        self.entry_message.bind("<Return>", lambda event: self._on_send_message())
 
         # Switch para activar o desactivar uso de PDF
         self.use_pdf_switch = ctk.CTkSwitch(
@@ -203,50 +187,69 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Actualizar binding del <Return>
         self.entry_message.bind("<Return>", lambda event: self._on_send_based_on_switch())
-        
 
-        
+        # Bind para actualizar el chat cuando se redimensiona la ventana
+        self.bind("<Configure>", self._on_window_resize)
 
+    def _on_window_resize(self, event):
+        """Actualiza el wraplength de los mensajes cuando se redimensiona la ventana"""
+        if event.widget == self:
+            # Obtener el ancho actual del área de chat
+            self.after(10, self._update_message_wraplength)
 
+    def _update_message_wraplength(self):
+        """Actualiza el wraplength de todos los mensajes existentes"""
+        try:
+            # Calcular el nuevo wraplength basado en el ancho del chat_area
+            chat_width = self.chat_area.winfo_width()
+            if chat_width > 100:  # Evitar valores muy pequeños
+                new_wraplength = max(200, chat_width - 80)  # Margen de 80px
+                
+                # Actualizar todos los labels existentes
+                for widget in self.chat_area.winfo_children():
+                    if isinstance(widget, ctk.CTkFrame):
+                        for child in widget.winfo_children():
+                            if isinstance(child, ctk.CTkLabel):
+                                child.configure(wraplength=new_wraplength)
+        except:
+            pass  # En caso de error, continúa sin actualizar
 
     def obtener_balance_deepgram(self) -> str:
-            """
-            Llama a GET /v1/projects/:project_id/balances
-            y muestra el amount en USD y COP.
-            """
-            # Obtener project_id
-            self.aux = utils.obtener_project_id_deepgram(self.deepgram_api_key)
-            url = f"https://api.deepgram.com/v1/projects/{self.aux}/balances"
-            headers = {
-                "Authorization": f"Token {self.deepgram_api_key}"
-            }
+        """
+        Llama a GET /v1/projects/:project_id/balances
+        y muestra el amount en USD y COP.
+        """
+        # Obtener project_id
+        self.aux = utils.obtener_project_id_deepgram(self.deepgram_api_key)
+        url = f"https://api.deepgram.com/v1/projects/{self.aux}/balances"
+        headers = {
+            "Authorization": f"Token {self.deepgram_api_key}"
+        }
 
-            # Tasa de conversión (puedes actualizarla manualmente si deseas)
-            tasa_dolar_a_cop = 4000  # Puedes cambiar esta cifra según la tasa actual
+        # Tasa de conversión (puedes actualizarla manualmente si deseas)
+        tasa_dolar_a_cop = 4000  # Puedes cambiar esta cifra según la tasa actual
 
-            try:
-                resp = requests.get(url, headers=headers, timeout=10)
-                resp.raise_for_status()
-                data = resp.json()
+        try:
+            resp = requests.get(url, headers=headers, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
 
-                # Extraer amount y units del primer balance
-                balances = data.get("balances", [])
-                if balances:
-                    amount = balances[0].get("amount")  # valor en USD
-                    units = balances[0].get("units")
+            # Extraer amount y units del primer balance
+            balances = data.get("balances", [])
+            if balances:
+                amount = balances[0].get("amount")  # valor en USD
+                units = balances[0].get("units")
 
-                    # Convertir a pesos colombianos
-                    amount_cop = round(amount * tasa_dolar_a_cop)
+                # Convertir a pesos colombianos
+                amount_cop = round(amount * tasa_dolar_a_cop)
 
-                    return f"💰 {amount:.2f} {units.upper()} / ${amount_cop:,} COP"
-                else:
-                    return "❗ No se encontró ningún balance disponible."
+                return f"💰 {amount:.2f} {units.upper()} / ${amount_cop:,} COP"
+            else:
+                return "❗ No se encontró ningún balance disponible."
 
-            except requests.RequestException as e:
-                print(f"❌ Error al obtener balance de Deepgram: {e}")
-                return "❌ Error al obtener balance."
-
-
+        except requests.RequestException as e:
+            print(f"❌ Error al obtener balance de Deepgram: {e}")
+            return "❌ Error al obtener balance."
 
     def _on_select_pdf(self):
         ruta = filedialog.askopenfilename(
@@ -258,26 +261,6 @@ class AsisVozApp(TkinterDnD.Tk):
             messagebox.showinfo("Archivo cargado", f"PDF seleccionado:\n{os.path.basename(ruta)}")
         else:
             self.pdf_path = None
-
-    def _on_switch_toggle(self):
-        if self.use_pdf_switch.get() == 0:
-            self.pdf_path = None  # limpiar si desactiva
-
-    def _on_send_based_on_switch(self):
-        if self.use_pdf_switch.get() == 1:
-            ruta = filedialog.askopenfilename(
-                title="Selecciona un archivo PDF",
-                filetypes=[("Archivos PDF", "*.pdf")]
-            )
-            if not ruta:
-                messagebox.showwarning("PDF no seleccionado", "No se seleccionó ningún archivo.")
-                return
-
-            self.pdf_path = ruta
-            self._on_send_with_pdf()
-        else:
-            self._on_send_message()
-
 
     def _on_switch_toggle(self):
         if self.use_pdf_switch.get() == 0:
@@ -326,9 +309,6 @@ class AsisVozApp(TkinterDnD.Tk):
         # Eliminar el aviso después de X milisegundos
         self.after(duracion, aviso.destroy)
 
-
-
-
     def _crear_area_upload(self, contenedor):
         ctk.CTkLabel(
             contenedor,
@@ -337,7 +317,7 @@ class AsisVozApp(TkinterDnD.Tk):
         ).pack(pady=(10, 5))
         ctk.CTkLabel(
             contenedor,
-            text="Arrastra tus archivos de audio para comenzar la carga",
+            text="Arrastra tus archivos de audio\npara comenzar la carga",
             font=ctk.CTkFont(size=11),
             wraplength=280,
             justify="center"
@@ -373,8 +353,6 @@ class AsisVozApp(TkinterDnD.Tk):
 
         self.selected_files = list(archivos_validos)
         self._actualizar_lista_archivos()
-
-
 
     def _on_browse_files(self):
         tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus"),]
@@ -445,31 +423,6 @@ class AsisVozApp(TkinterDnD.Tk):
         y = (alto_pantalla // 2) - (alto_ventana // 2)
         self.geometry(f"+{x}+{y}")
 
-
-    # ──────────────────────────────────────────────────────────────────────
-    # Lógica de transcripción en segundo plano (Deepgram)
-    # ──────────────────────────────────────────────────────────────────────
-   
-    """
-    def _on_transcribir(self):
-        if not self.selected_files:
-            messagebox.showinfo("Sin archivos", "Primero selecciona archivos.")
-            return
-
-        self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
-        ruta = self.selected_files[0]
-        print("[AsisVozApp] (HILO PRINCIPAL) Ruta del archivo a transcribir:", ruta)
-
-        hilo = threading.Thread(target=self._worker_transcribir, args=(ruta,))
-        hilo.daemon = True
-        hilo.start()
-        
-    """   
-        
-
-    
- 
-
     def _on_transcribir(self):
         if not self.selected_files:
             messagebox.showinfo("Sin archivos", "Primero selecciona archivos.")
@@ -479,7 +432,6 @@ class AsisVozApp(TkinterDnD.Tk):
 
         def tarea():
             try:
-
                 ruta = self.selected_files[0]
                 self.transcriptor.transcribir_audio(ruta)
                 self._mostrar_aviso_banner(f"🎧 Transcribiendo: {os.path.basename(ruta)}")
@@ -487,7 +439,6 @@ class AsisVozApp(TkinterDnD.Tk):
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Error", str(e)))
             finally:
-
                 self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
         threading.Thread(target=tarea, daemon=True).start()
 
@@ -502,7 +453,6 @@ class AsisVozApp(TkinterDnD.Tk):
         )
 
     def _on_open_transcripcion(self):
-
         ruta_pdf = "transcripcion.pdf"
         
         if not os.path.exists(ruta_pdf):
@@ -518,12 +468,9 @@ class AsisVozApp(TkinterDnD.Tk):
         else:
             subprocess.call(["xdg-open", ruta_pdf])
             
-    # ──────────────────────────────────────────────────────────────────────
-    # Lógica del chatbot (OpenRouter) en hilos para no bloquear la GUI
-    # ──────────────────────────────────────────────────────────────────────
     def _on_send_message(self):
         """
-        Envía el contenido de la caja de texto como “solo texto” (sin PDF).
+        Envía el contenido de la caja de texto como "solo texto" (sin PDF).
         """
         texto = self.entry_message.get().strip()
         if texto == "":
@@ -573,7 +520,6 @@ class AsisVozApp(TkinterDnD.Tk):
         self._mensaje_cargando_id = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
         hilo.start()
 
-
     def _worker_llm_pdf(self, pdf_path: str, prompt: str):
         """
         Este método se ejecuta en un hilo aparte. Llama a preguntar_con_pdf
@@ -587,9 +533,8 @@ class AsisVozApp(TkinterDnD.Tk):
         self.after(0, self._update_chat_with_response, respuesta_texto)
 
     def _update_chat_with_response(self, respuesta: str):
-     
         if hasattr(self, "_mensaje_cargando_id") and self._mensaje_cargando_id:
-        # Busca el label hijo del frame para cambiar el texto
+            # Busca el label hijo del frame para cambiar el texto
             for widget in self._mensaje_cargando_id.winfo_children():
                 if isinstance(widget, ctk.CTkLabel):
                     widget.configure(text=respuesta)
@@ -600,7 +545,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
     def _agregar_mensaje(self, texto, remitente="usuario"):
         """
-        Crea una burbuja de chat con ancho fijo (560 px) y altura automática:
+        Crea una burbuja de chat con ancho flexible y altura automática:
         - Si remitente="usuario", se alinea a la derecha con fondo azul claro.
         - Si remitente="bot", se alinea a la izquierda con fondo gris claro.
         Luego fuerza el scroll para que siempre se vea el último mensaje.
@@ -608,16 +553,22 @@ class AsisVozApp(TkinterDnD.Tk):
         bubble_fg = "#d9eaff" if remitente == "usuario" else "#f1f1f1"
         text_anchor = "e" if remitente == "usuario" else "w"
 
-        # Creamos la burbuja con ancho fijo de 560 px
-        frame_burbuja = ctk.CTkFrame(self.chat_area, fg_color=bubble_fg, corner_radius=10)
-        frame_burbuja.configure(width=560)  # ancho máximo fijo
-        # NO llamamos a pack_propagate(False): permitimos que la altura crezca al contenido.
+        # Obtener el ancho actual del chat_area
+        chat_width = self.chat_area.winfo_width()
+        if chat_width <= 100:  # Si aún no se ha inicializado
+            chat_width = 400  # Valor por defecto
+        
+        # Calcular wraplength dinámicamente
+        wraplength = max(200, chat_width - 80)  # Margen de 80px, mínimo 200px
 
-        # Etiqueta interna con wraplength = 540 px
+        # Creamos la burbuja sin ancho fijo
+        frame_burbuja = ctk.CTkFrame(self.chat_area, fg_color=bubble_fg, corner_radius=10)
+
+        # Etiqueta interna con wraplength dinámico
         label = ctk.CTkLabel(
             frame_burbuja,
             text=texto,
-            wraplength=300,  # texto se quiebra antes de llegar a 540 px
+            wraplength=wraplength,
             justify="left",
             font=ctk.CTkFont(size=12)
         )
@@ -636,5 +587,3 @@ class AsisVozApp(TkinterDnD.Tk):
         # Forzamos el scroll al fondo
         self.after(50, lambda: self.chat_area._parent_canvas.yview_moveto(1.0))
         return frame_burbuja
-
-
