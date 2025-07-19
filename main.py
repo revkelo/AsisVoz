@@ -66,7 +66,8 @@ ARCHIVO_ESTADO_LICENCIA = "estado_licencia.json"
 
 def validar_keys():
     if not utils.OPENROUTER_API_KEY or not utils.DEEPGRAM_API_KEY:
-        messagebox.showerror("Error de configuración", "Las claves API no están correctamente configuradas.")
+        # Mostrar mensaje de error
+        messagebox.showerror("Claves API inválidas", "❌ Las claves API no están correctamente configuradas.")
         return False
     return True
 
@@ -189,16 +190,21 @@ def centrar_ventana(ventana, ancho, alto):
 
 def iniciar_asisvoz(root):
     if not licencia_ya_registrada():
+        # Mostrar advertencia
         messagebox.showwarning("Licencia requerida", "⚠️ Debe ingresar una licencia válida antes de continuar.")
-        return  # ✅ Este return debe estar dentro del if
-    
-    if not validar_keys():  # ← AQUÍ SE USA
+        # Después de cerrar el mensaje, mostrar la ventana para registrar equipo
+        root.after(100, lambda: mostrar_ventana_registro_equipo(root))
         return
 
+    if not validar_keys():
+        
+        # Después de cerrar el mensaje, mostrar la ventana para registrar claves
+        root.after(100, lambda: mostrar_ventana_licencia(root))  # reutiliza VentanaLicencia para corregir claves
+        return
 
+    # Si todo es válido, abrir la app
     root.withdraw()
     app = AsisVozApp(utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
-
 
     def on_app_close():
         app.withdraw()
@@ -206,19 +212,17 @@ def iniciar_asisvoz(root):
 
     def on_root_close():
         try:
-            app.destroy()  # Cerramos la app secundaria
+            app.destroy()
         except:
             pass
         try:
-            root.destroy()  # Cerramos root
+            root.destroy()
         except:
             pass
-        sys.exit()  # Finalizamos el programa completamente
-
+        sys.exit()
 
     app.protocol("WM_DELETE_WINDOW", on_app_close)
     root.protocol("WM_DELETE_WINDOW", on_root_close)
-
     app.mainloop()
 
 
