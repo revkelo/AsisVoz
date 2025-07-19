@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import customtkinter as ctk
 import tkinter as tk  # Necesario para Menu
 from tkinter import messagebox
@@ -7,6 +8,7 @@ from VentanaKeys import VentanaLicencia
 from VentanaPrincipal import AsisVozApp
 import utils  
 from PIL import Image
+
 
 
 # Configuración del tema
@@ -197,12 +199,29 @@ def iniciar_asisvoz(root):
     root.withdraw()
     app = AsisVozApp(utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
 
-    def on_close():
-        app.destroy()
+
+    def on_app_close():
+        app.withdraw()
         root.deiconify()
 
-    app.protocol("WM_DELETE_WINDOW", on_close)
+    def on_root_close():
+        try:
+            app.destroy()  # Cerramos la app secundaria
+        except:
+            pass
+        try:
+            root.destroy()  # Cerramos root
+        except:
+            pass
+        sys.exit()  # Finalizamos el programa completamente
+
+
+    app.protocol("WM_DELETE_WINDOW", on_app_close)
+    root.protocol("WM_DELETE_WINDOW", on_root_close)
+
     app.mainloop()
+
+
 
 def crear_ventana_principal():
   
