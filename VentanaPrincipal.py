@@ -12,7 +12,7 @@ from tkinterdnd2 import DND_FILES, TkinterDnD
 import tkinter as tk
 import platform
 import subprocess
-from PIL import Image
+from PIL import Image, ImageTk, ImageSequence
 
 import utils
 
@@ -29,7 +29,8 @@ class AsisVozApp(TkinterDnD.Tk):
         self.minsize(800, 600)  # Tamaño mínimo de ventana
         self.centrar_ventana()
         self.resizable(True, True)  # Permitir redimensionar
-        self.selected_files = []
+
+
 
         self.auxiliar = ""
         
@@ -89,6 +90,7 @@ class AsisVozApp(TkinterDnD.Tk):
         )
         self.btn_transcribir.pack(pady=(10, 5), fill="x")
 
+
         # Botón "Abrir transcripción" (oculto inicialmente)
         self.btn_abrir_transcripcion = ctk.CTkButton(
             left_frame,
@@ -98,6 +100,17 @@ class AsisVozApp(TkinterDnD.Tk):
         )
         self.btn_abrir_transcripcion.pack(pady=(5, 0), fill="x")
         self.btn_abrir_transcripcion.pack_forget()
+
+
+        self.gif_label = ctk.CTkLabel(left_frame, text="Cargando...") 
+        self.gif_label.pack(pady=(4, 0))  # justo debajo del botón abrir transcripción
+        self.gif_label.pack_forget()  # para ocultarlo inicialmente
+
+        self._cargar_frames_gif()
+        #self.current_frame = 0  # 👈 importante
+        self._animar_gif()
+
+        
 
         # ─── RIGHT (Chatbot) ────────────────────────────────────────────────
         right_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
@@ -202,6 +215,8 @@ class AsisVozApp(TkinterDnD.Tk):
         # Bind para actualizar el chat cuando se redimensiona la ventana
         self.bind("<Configure>", self._on_window_resize)
         self._inicializar_chat_responsive()
+
+
 
     def _limpiar_respuesta_openrouter(self, texto):
         """
@@ -535,12 +550,73 @@ class AsisVozApp(TkinterDnD.Tk):
         y = (alto_pantalla // 2) - (alto_ventana // 2)
         self.geometry(f"+{x}+{y}")
 
+
+    def _cargar_frames_gif(self):
+        gif_path = './media/tiste.gif/'
+
+        print(f"[DEBUG] Ruta del GIF: {os.path.abspath(gif_path)}")
+        print(f"[DEBUG] ¿Existe el archivo?: {os.path.exists(gif_path)}")
+        print(f"[DEBUG] Ruta absoluta del GIF: {os.path.abspath(gif_path)}")
+
+
+        if not os.path.isfile(gif_path):
+            print(f"⚠️ No se encontró el archivo GIF en: {gif_path}")
+            return  
+        
+        imagen = Image.open(gif_path)
+        self.gif_frames = []
+
+        try:
+            while True:
+                frame = imagen.copy().resize((150, 150), Image.LANCZOS)
+                frame_ctk = CTkImage(light_image=frame, size=(150, 150))
+                self.gif_frames.append(frame_ctk)
+                imagen.seek(imagen.tell() + 1) # Ir al siguiente frame
+        except EOFError:
+            pass
+
+        # Mostrar primer frame
+        self.gif_label.configure(image=self.gif_frames[0])
+        self.gif_label.image = self.gif_frames[0]  # Muy importante
+        self.current_frame = 0
+        self.after(100, self._animar_gif)
+
+
+
+    def _animar_gif(self):
+        if hasattr(self, "gif_frames") and self.gif_frames:
+            try:
+                self.gif_label.configure(image=self.gif_frames[self.current_frame])
+                self.current_frame = (self.current_frame + 1) % len(self.gif_frames)
+                self.after(100, self._animar_gif)
+            except Exception as e:
+                print(f"Error al animar GIF: {e}")
+
+
+
+    def mostrar_gif(self):
+        self.gif_label.pack(pady=3)
+        self.frame_actual = 0
+        self.actualizar_gif()
+
+    def ocultar_gif(self):
+        self.gif_label.pack_forget()
+
+
+
+
+
+    def actualizar_gif(self):
+      if hasattr(self, 'gif_frames') and self.gif_frames:
+        self.gif_label.configure(image=self.gif_frames[self.frame_actual])
+        self.frame_actual = (self.frame_actual + 1) % len(self.gif_frames)
+        self.after(100, self.actualizar_gif)
+
     def _on_transcribir(self):
         if not self.selected_files:
             messagebox.showinfo("Sin archivos", "Primero selecciona archivos.")
             return
-        self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
-
+        
         # Solicitar al usuario una carpeta para guardar el PDF
         carpeta_destino = filedialog.askdirectory(
             title="Selecciona una carpeta para guardar el PDF"
@@ -555,27 +631,31 @@ class AsisVozApp(TkinterDnD.Tk):
         nombre_base = (nombre_base[:70] + '...') if len(nombre_base) > 50 else nombre_base
         self.nombre_pdf = os.path.join(carpeta_destino, f"{nombre_base}.pdf")
         self.btn_transcribir.configure(text="Transcribir", state="enable")
-            
-        
+        self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
 
         def tarea():
+            print("tratando de cargar el gif")
+            self.after(0, self.mostrar_gif)
+            #threading.Thread(target=self._transcribir).start()
             try:
-                ruta = self.selected_files[0]
-                self.transcriptor.transcribir_audio(ruta, self.nombre_pdf)
+                ruta = self.selected_files[0] 
                 self._mostrar_aviso_banner(f"🎧 Transcribiendo: {os.path.basename(ruta)}")
+                self.transcriptor.transcribir_audio(ruta, self.nombre_pdf)
                 self.after(0, self._transcripcion_exitosa)
             except Exception as e:
-                messagebox.showerror("Error", str(e))
+                self.after(0, lambda: messagebox.showerror("Error", str(e)))
             finally:
                 self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
+                print("esconder el gif")
+                self.after(0, self.ocultar_gif)
         threading.Thread(target=tarea, daemon=True).start()
 
     def _transcripcion_exitosa(self):
         self._guardar_en_historial(self.nombre_pdf)
         messagebox.showinfo("Éxito", "Transcripción completada.")
-        self._mostrar_aviso_banner("✅ Transcripción terminada")
+        #self._mostrar_aviso_banner("✅ Transcripción terminada")
 
-        self._agregar_mensaje("✔ Transcripción completada", remitente="bot")
+        self._agregar_mensaje("✔ Transcripción terminada", remitente="bot")
         self.btn_abrir_transcripcion.pack(pady=(5, 0))
         self.lbl_saldo.configure(
             text=self.obtener_balance_deepgram()
