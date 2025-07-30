@@ -1,4 +1,5 @@
 import customtkinter as ctk
+from customtkinter import CTkImage
 from tkinterdnd2 import TkinterDnD
 import tkinter as tk
 from PIL import Image, ImageTk, ImageSequence
@@ -16,6 +17,9 @@ class AsisVozVisualMock(TkinterDnD.Tk):
         self.minsize(800, 600)
         self.resizable(True, True)
         self.centrar_ventana()
+
+        # Menú superior
+        self._crear_menu()
 
         # Main Frame
         main_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -53,7 +57,14 @@ class AsisVozVisualMock(TkinterDnD.Tk):
         header_frame = ctk.CTkFrame(chat_frame, fg_color="transparent")
         header_frame.pack(fill="x", padx=10, pady=(20, 10))
 
-        ctk.CTkLabel(header_frame, text="🤖", font=ctk.CTkFont(size=36)).pack()
+        # Cargar y mostrar logo en lugar del emoji
+        logo_path = "media/icono.png"
+        if os.path.exists(logo_path):
+            logo_img = CTkImage(dark_image=Image.open(logo_path), size=(48, 48))
+            ctk.CTkLabel(header_frame, image=logo_img, text="").pack()
+        else:
+            ctk.CTkLabel(header_frame, text="🤖", font=ctk.CTkFont(size=36)).pack()
+
         ctk.CTkLabel(header_frame, text="Chatbot", font=ctk.CTkFont(size=16, weight="bold")).pack()
         ctk.CTkLabel(header_frame, text="¡Hola! ¿Cómo puedo ayudarte hoy?", font=ctk.CTkFont(size=12), justify="center").pack(pady=(5, 0))
 
@@ -67,19 +78,21 @@ class AsisVozVisualMock(TkinterDnD.Tk):
         ctk.CTkSwitch(frame_entry, text="Usar PDF").pack(side="left", padx=(5, 10))
         ctk.CTkButton(frame_entry, text="Enviar", width=60, height=32).pack(side="left")
 
-        # GIF animado decorativo
-        gif_path = "media/cargando.gif"
-        if os.path.exists(gif_path):
-            self.frames = [ImageTk.PhotoImage(frame.copy().resize((400, 300))) for frame in ImageSequence.Iterator(Image.open(gif_path))]
-            self.gif_index = 0
-            self.gif_label = tk.Label(self, image=self.frames[0], border=0)
-            self.gif_label.pack(pady=20)
-            self.animar_gif()
+
+
+    def _crear_menu(self):
+        menubar = tk.Menu(self)
+        historial_menu = tk.Menu(menubar, tearoff=0)
+
+
+        menubar.add_cascade(label="Historial", menu=historial_menu)
+        self.config(menu=menubar)
+
 
     def animar_gif(self):
         self.gif_index = (self.gif_index + 1) % len(self.frames)
         self.gif_label.configure(image=self.frames[self.gif_index])
-        self.after(100, self.animar_gif)  # Cambia 100ms si quieres mayor/menor velocidad
+        self.after(100, self.animar_gif)
 
     def centrar_ventana(self):
         self.update_idletasks()
