@@ -1,4 +1,6 @@
 import json
+import os
+import sys
 import requests
 from cryptography.fernet import Fernet
 
@@ -30,6 +32,16 @@ def validar_api_key_deepgram(api_key):
         print(f"❌ Error al conectar con Deepgram: {e}")
         return False
 
+
+
+"""Devuelve ruta absoluta para ejecución directa"""
+def ruta_absoluta(relative_path):
+  
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 def cifrar_archivo(path_entrada, path_salida=None):
     """

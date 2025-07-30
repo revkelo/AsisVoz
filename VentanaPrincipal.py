@@ -27,6 +27,12 @@ class AsisVozApp(TkinterDnD.Tk):
         self.title("AsisVoz")
         self.geometry("1000x850")
         self.minsize(800, 600)  # Tamaño mínimo de ventana
+        ico_path = utils.ruta_absoluta("media/logo.ico")
+        if os.path.exists(ico_path):
+            try:
+                self.iconbitmap(ico_path)
+            except Exception:
+                pass
         self.centrar_ventana()
         self.resizable(True, True)  # Permitir redimensionar
         self.selected_files = []

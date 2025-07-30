@@ -122,6 +122,12 @@ def mostrar_ventana_registro_equipo(root):
     else:
         ventana_registro_equipo = ctk.CTkToplevel(root)
         ventana_registro_equipo.title("Registrar Equipo")
+        ico_path = utils.ruta_absoluta("media/logo.ico")
+        if os.path.exists(ico_path):
+            try:
+                ventana_registro_equipo.iconbitmap(ico_path)
+            except Exception:
+                pass
         ventana_registro_equipo.geometry("400x200")
         ventana_registro_equipo.resizable(False, False)
         
@@ -238,6 +244,14 @@ def crear_ventana_principal():
     # Crear menú
     menubar = tk.Menu(root)
     root.config(menu=menubar)
+
+
+    ico_path = utils.ruta_absoluta("media/logo.ico")
+    if os.path.exists(ico_path):
+        try:
+            root.iconbitmap(ico_path)
+        except Exception:
+            pass
 
     menu_opciones = tk.Menu(menubar, tearoff=0)
     menubar.add_cascade(label="Opciones", menu=menu_opciones)
