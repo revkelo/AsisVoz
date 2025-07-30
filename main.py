@@ -208,27 +208,11 @@ def iniciar_asisvoz(root):
         root.after(100, lambda: mostrar_ventana_licencia(root))  # reutiliza VentanaLicencia para corregir claves
         return
 
-    # Si todo es válido, abrir la app
-    root.withdraw()
+    root.destroy() 
     app = AsisVozApp(utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
 
-    def on_app_close():
-        app.withdraw()
-        root.deiconify()
 
-    def on_root_close():
-        try:
-            app.destroy()
-        except:
-            pass
-        try:
-            root.destroy()
-        except:
-            pass
-        sys.exit()
 
-    app.protocol("WM_DELETE_WINDOW", on_app_close)
-    root.protocol("WM_DELETE_WINDOW", on_root_close)
     app.mainloop()
 
 
