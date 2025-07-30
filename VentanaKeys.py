@@ -37,8 +37,6 @@ def obtener_project_id_deepgram(api_key):
     return None
 
 
-
-# ✅ Ventana principal para ingresar claves
 class VentanaLicencia(ctk.CTkToplevel):
     def __init__(self, root, openrouter_key, deepgram_key):
 
@@ -46,6 +44,12 @@ class VentanaLicencia(ctk.CTkToplevel):
 
         self.title("Registrar Licencia")
         self.geometry("500x250")
+        ico_path = utils.ruta_absoluta("media/logo.ico")
+        if os.path.exists(ico_path):
+            try:
+                self.iconbitmap(ico_path)
+            except Exception:
+                pass
         self.resizable(False, False)
         self.center_window()
 

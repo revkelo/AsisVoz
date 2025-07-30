@@ -122,6 +122,12 @@ def mostrar_ventana_registro_equipo(root):
     else:
         ventana_registro_equipo = ctk.CTkToplevel(root)
         ventana_registro_equipo.title("Registrar Equipo")
+        ico_path = utils.ruta_absoluta("media/logo.ico")
+        if os.path.exists(ico_path):
+            try:
+                ventana_registro_equipo.iconbitmap(ico_path)
+            except Exception:
+                pass
         ventana_registro_equipo.geometry("400x200")
         ventana_registro_equipo.resizable(False, False)
         
@@ -202,27 +208,11 @@ def iniciar_asisvoz(root):
         root.after(100, lambda: mostrar_ventana_licencia(root))  # reutiliza VentanaLicencia para corregir claves
         return
 
-    # Si todo es válido, abrir la app
-    root.withdraw()
+    root.destroy() 
     app = AsisVozApp(utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
 
-    def on_app_close():
-        app.withdraw()
-        root.deiconify()
 
-    def on_root_close():
-        try:
-            app.destroy()
-        except:
-            pass
-        try:
-            root.destroy()
-        except:
-            pass
-        sys.exit()
 
-    app.protocol("WM_DELETE_WINDOW", on_app_close)
-    root.protocol("WM_DELETE_WINDOW", on_root_close)
     app.mainloop()
 
 
@@ -238,6 +228,14 @@ def crear_ventana_principal():
     # Crear menú
     menubar = tk.Menu(root)
     root.config(menu=menubar)
+
+
+    ico_path = utils.ruta_absoluta("media/logo.ico")
+    if os.path.exists(ico_path):
+        try:
+            root.iconbitmap(ico_path)
+        except Exception:
+            pass
 
     menu_opciones = tk.Menu(menubar, tearoff=0)
     menubar.add_cascade(label="Opciones", menu=menu_opciones)

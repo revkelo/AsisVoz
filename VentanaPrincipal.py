@@ -19,14 +19,20 @@ import utils
 
 class AsisVozApp(TkinterDnD.Tk):
     def __init__(self,openrouter_key, deepgram_key):
-        super().__init__()
         
+        super().__init__()
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
         self.pdf_path = None
         self.title("AsisVoz")
         self.geometry("1000x850")
         self.minsize(800, 600)  # Tamaño mínimo de ventana
+        ico_path = utils.ruta_absoluta("media/logo.ico")
+        if os.path.exists(ico_path):
+            try:
+                self.iconbitmap(ico_path)
+            except Exception:
+                pass
         self.centrar_ventana()
         self.resizable(True, True)  # Permitir redimensionar
         self.selected_files = []
@@ -133,6 +139,8 @@ class AsisVozApp(TkinterDnD.Tk):
             justify="center"
         ).pack(pady=(5, 0))
         
+        
+        
         # ─── SALDO EN ESQUINA SUPERIOR DERECHA ──────────────────────────────
         self.lbl_saldo = ctk.CTkLabel(
             self,
@@ -188,6 +196,22 @@ class AsisVozApp(TkinterDnD.Tk):
         self.historial_archivo = "historial.txt"
         self.historial_transcripciones = self._cargar_historial()
 
+
+
+# Ruta de la imagen
+        ruta = "media/icono.png"  # Reemplaza con tu ruta
+
+        if os.path.exists(ruta):
+            imagen = Image.open(ruta)
+            imagen = imagen.convert("RGBA")
+
+            ctk_imagen = ctk.CTkImage(light_image=imagen, dark_image=imagen, size=(400, 300))
+            self.label = ctk.CTkLabel(self, image=ctk_imagen, text="")  # text="" evita mostrar texto
+            self.label.pack(pady=20)
+            self.imagen_ref = ctk_imagen  # 🔒 Mantener referencia
+        else:
+            print("❌ Imagen no encontrada.")
+            
         # Menú superior
         menubar = tk.Menu(self)
         self.config(menu=menubar)
