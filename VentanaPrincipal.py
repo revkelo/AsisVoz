@@ -12,7 +12,7 @@ from tkinterdnd2 import DND_FILES, TkinterDnD
 import tkinter as tk
 import platform
 import subprocess
-from PIL import Image
+from PIL import Image, ImageTk
 
 import utils
 
@@ -196,22 +196,87 @@ class AsisVozApp(TkinterDnD.Tk):
         self.historial_archivo = "historial.txt"
         self.historial_transcripciones = self._cargar_historial()
 
+        self.gif_path = "media/cargando.gif"
+        self.gif_frames = []
+        self.current_frame = 0
 
+        if os.path.exists(self.gif_path):
+            self._cargar_frames_gif()
+
+
+    def _cargar_frames_gif(self):
+        imagen = Image.open(self.gif_path)
+        try:
+            while True:
+                frame = imagen.copy().convert("RGBA").resize((150, 150), Image.LANCZOS)
+                frame_tk = ImageTk.PhotoImage(frame)
+                self.gif_frames.append(frame_tk)
+                imagen.seek(len(self.gif_frames))  # Siguiente frame
+        except EOFError:
+            pass  # Fin de los frames
+
+        # Crear el label en la esquina inferior izquierda
+        self.label = ctk.CTkLabel(self, text="")
+        self.label.place(relx=0.0, rely=1.0, anchor="sw")  # Inferior izquierda
+
+    def _mostrar_gif(self):
+        if self.gif_frames:
+            frame = self.gif_frames[self.current_frame]
+            self.label.configure(image=frame)
+            self.label.image = frame  # 🔒 Mantener referencia
+            self.current_frame = (self.current_frame + 1) % len(self.gif_frames)
+            self.after(100, self._mostrar_gif)  # Cambia frame cada 100 ms
+
+    def _mostrar_gif_cargando(self):
+        if not hasattr(self, 'gif_frames'):
+            self.gif_frames = []
+            imagen = Image.open("media/cargando.gif")
+            try:
+                while True:
+                    frame = imagen.copy().convert("RGBA").resize((100, 100), Image.LANCZOS)
+                    self.gif_frames.append(ImageTk.PhotoImage(frame))
+                    imagen.seek(len(self.gif_frames))
+            except EOFError:
+                pass
+
+        if not hasattr(self, 'gif_label'):
+            self.gif_label = ctk.CTkLabel(self, text="")
+            self.gif_label.place(relx=0.0, rely=1.0, x=50, y=-120, anchor="sw")
+
+        self._gif_frame_index = 0
+        self._reproducir_gif()
+
+    def _reproducir_gif(self):
+        if hasattr(self, 'gif_frames') and hasattr(self, 'gif_label'):
+            frame = self.gif_frames[self._gif_frame_index]
+            self.gif_label.configure(image=frame)
+            self.gif_label.image = frame  # mantener referencia
+            self._gif_frame_index = (self._gif_frame_index + 1) % len(self.gif_frames)
+            self._gif_job = self.after(100, self._reproducir_gif)
+
+    def _ocultar_gif_cargando(self):
+        if hasattr(self, 'gif_label'):
+            self.gif_label.place_forget()  # Oculta el GIF
+        if hasattr(self, '_gif_job'):
+            self.after_cancel(self._gif_job)
 
 # Ruta de la imagen
-        ruta = "media/icono.png"  # Reemplaza con tu ruta
+        ruta = "media/.gif"  # Reemplaza con tu ruta
 
         if os.path.exists(ruta):
             imagen = Image.open(ruta)
             imagen = imagen.convert("RGBA")
 
-            ctk_imagen = ctk.CTkImage(light_image=imagen, dark_image=imagen, size=(400, 300))
+            ctk_imagen = ctk.CTkImage(light_image=imagen, dark_image=imagen, size=(150, 150))
             self.label = ctk.CTkLabel(self, image=ctk_imagen, text="")  # text="" evita mostrar texto
-            self.label.pack(pady=20)
+            self.label.place(relx=0.0, rely=1.0, anchor="sw")
             self.imagen_ref = ctk_imagen  # 🔒 Mantener referencia
         else:
             print("❌ Imagen no encontrada.")
-            
+
+
+
+
         # Menú superior
         menubar = tk.Menu(self)
         self.config(menu=menubar)
@@ -585,12 +650,15 @@ class AsisVozApp(TkinterDnD.Tk):
         def tarea():
             try:
                 ruta = self.selected_files[0]
+                self.after(0, self._mostrar_gif_cargando)
+
                 self.transcriptor.transcribir_audio(ruta, self.nombre_pdf)
                 self._mostrar_aviso_banner(f"🎧 Transcribiendo: {os.path.basename(ruta)}")
                 self.after(0, self._transcripcion_exitosa)
             except Exception as e:
                 messagebox.showerror("Error", str(e))
             finally:
+                self.after(0, self._ocultar_gif_cargando)
                 self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
         threading.Thread(target=tarea, daemon=True).start()
 
