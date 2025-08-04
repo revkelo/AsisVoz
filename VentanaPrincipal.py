@@ -118,27 +118,35 @@ class AsisVozApp(TkinterDnD.Tk):
         )
         chat_frame.pack(anchor="n", padx=10, pady=(40, 10), fill="both", expand=True)
 
-        # Icono y título del chatbot
-        header_frame = ctk.CTkFrame(chat_frame, fg_color="transparent")
-        header_frame.pack(fill="x", padx=10, pady=(20, 10))
-        
+        image_path = os.path.join("media", "icono.png")  # Ruta relativa a la imagen
+        chatbot_img = ctk.CTkImage(
+            light_image=Image.open(image_path),
+            dark_image=Image.open(image_path),
+            size=(60, 60)  # Ajusta el tamaño de la imagen
+        )
+
+        # Mostrar la imagen
         ctk.CTkLabel(
-            header_frame,
-            text="🤖",
-            font=ctk.CTkFont(size=36)
-        ).pack()
+            chat_frame,
+            image=chatbot_img,
+            text=""
+        ).pack(pady=(20, 10))
+
+        # Título del chatbot
         ctk.CTkLabel(
-            header_frame,
+            chat_frame,
             text="Chatbot",
             font=ctk.CTkFont(size=16, weight="bold")
         ).pack()
+
+        # Mensaje de bienvenida
         ctk.CTkLabel(
-            header_frame,
+            chat_frame,
             text="¡Hola! ¿Cómo puedo ayudarte hoy?",
             font=ctk.CTkFont(size=12),
             justify="center"
         ).pack(pady=(5, 0))
-        
+
         
         
         # ─── SALDO EN ESQUINA SUPERIOR DERECHA ──────────────────────────────
@@ -358,6 +366,7 @@ class AsisVozApp(TkinterDnD.Tk):
         """
         Llama a GET /v1/projects/:project_id/balances
         y muestra el amount en USD y COP.
+        También guarda el saldo para luego calcular costo de transcripción.
         """
         # Obtener project_id
         self.aux = utils.obtener_project_id_deepgram(self.deepgram_api_key)
@@ -366,8 +375,8 @@ class AsisVozApp(TkinterDnD.Tk):
             "Authorization": f"Token {self.deepgram_api_key}"
         }
 
-        # Tasa de conversión (puedes actualizarla manualmente si deseas)
-        tasa_dolar_a_cop = 4000  # Puedes cambiar esta cifra según la tasa actual
+        # Tasa de conversión manual
+        tasa_dolar_a_cop = 4000  # Ajusta según la tasa actual
 
         try:
             resp = requests.get(url, headers=headers, timeout=10)
@@ -380,6 +389,10 @@ class AsisVozApp(TkinterDnD.Tk):
                 amount = balances[0].get("amount")  # valor en USD
                 units = balances[0].get("units")
 
+                # Guardar saldo actual y anterior para cálculo de costos
+                self.balance_anterior = getattr(self, "balance_actual", None)
+                self.balance_actual = amount
+
                 # Convertir a pesos colombianos
                 amount_cop = round(amount * tasa_dolar_a_cop)
 
@@ -390,6 +403,19 @@ class AsisVozApp(TkinterDnD.Tk):
         except requests.RequestException as e:
             print(f"❌ Error al obtener balance de Deepgram: {e}")
             return "❌ Error al obtener balance."
+
+    def calcular_costo_transcripcion(self) -> str:
+        """
+        Calcula cuánto costó la última transcripción en USD y COP.
+        """
+        tasa_dolar_a_cop = 4000  # Ajusta según la tasa actual
+        if self.balance_anterior is None or self.balance_actual is None:
+            return "No hay información suficiente para calcular el costo."
+
+        costo_usd = self.balance_anterior - self.balance_actual
+        costo_cop = round(costo_usd * tasa_dolar_a_cop)
+
+        return f"🧾 Costo de la transcripción: {costo_usd:.2f} USD / ${costo_cop:,} COP"
 
     def _on_select_pdf(self):
         ruta = filedialog.askopenfilename(
@@ -663,15 +689,34 @@ class AsisVozApp(TkinterDnD.Tk):
         threading.Thread(target=tarea, daemon=True).start()
 
     def _transcripcion_exitosa(self):
+   
+        # Guardar en historial
         self._guardar_en_historial(self.nombre_pdf)
-        messagebox.showinfo("Éxito", "Transcripción completada.")
+
+        # Calcular el costo
+        costo = self.calcular_costo_transcripcion()
+
+        # Mostrar una sola ventana emergente con éxito y costo
+        messagebox.showinfo(
+            "Transcripción completada",
+            f"✅ Transcripción terminada con éxito.\n\n{costo}"
+        )
+
+        # Mostrar banner
         self._mostrar_aviso_banner("✅ Transcripción terminada")
 
+        # Mensaje en el chat
         self._agregar_mensaje("✔ Transcripción completada", remitente="bot")
+
+        # Botón para abrir PDF
         self.btn_abrir_transcripcion.pack(pady=(5, 0))
+
+        # Actualizar saldo
         self.lbl_saldo.configure(
             text=self.obtener_balance_deepgram()
         )
+
+
 
     def _on_open_transcripcion(self):
         if not hasattr(self, "nombre_pdf"):
