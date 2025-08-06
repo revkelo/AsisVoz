@@ -360,22 +360,19 @@ class AsisVozApp(TkinterDnD.Tk):
                                     bubble_child.configure(wraplength=new_wraplength)
         except Exception as e:
             print(f"Error actualizando wraplength: {e}")
-
+    balance_actual= None
+    balance_anterior = None
 
     def obtener_balance_deepgram(self) -> str:
         """
-        Llama a GET /v1/projects/:project_id/balances
-        y muestra el amount en USD y COP.
-        También guarda el saldo para luego calcular costo de transcripción.
+        Obtiene el balance de Deepgram en USD y COP y actualiza
+        balance_actual y balance_anterior para cálculo de costos.
         """
         # Obtener project_id
         self.aux = utils.obtener_project_id_deepgram(self.deepgram_api_key)
         url = f"https://api.deepgram.com/v1/projects/{self.aux}/balances"
-        headers = {
-            "Authorization": f"Token {self.deepgram_api_key}"
-        }
+        headers = {"Authorization": f"Token {self.deepgram_api_key}"}
 
-        # Tasa de conversión manual
         tasa_dolar_a_cop = 4000  # Ajusta según la tasa actual
 
         try:
@@ -383,19 +380,21 @@ class AsisVozApp(TkinterDnD.Tk):
             resp.raise_for_status()
             data = resp.json()
 
-            # Extraer amount y units del primer balance
             balances = data.get("balances", [])
             if balances:
-                amount = balances[0].get("amount")  # valor en USD
+                amount = balances[0].get("amount")  # USD
                 units = balances[0].get("units")
 
-                # Guardar saldo actual y anterior para cálculo de costos
-                self.balance_anterior = getattr(self, "balance_actual", None)
+                # Si ya había un balance, moverlo a balance_anterior
+                if hasattr(self, "balance_actual") and self.balance_actual is not None:
+                    self.balance_anterior = self.balance_actual
+                else:
+                    self.balance_anterior = amount  # Inicializa en primera llamada
+
+                # Actualizar balance actual
                 self.balance_actual = amount
 
-                # Convertir a pesos colombianos
                 amount_cop = round(amount * tasa_dolar_a_cop)
-
                 return f"💰 {amount:.2f} {units.upper()} / ${amount_cop:,} COP"
             else:
                 return "❗ No se encontró ningún balance disponible."
@@ -404,18 +403,37 @@ class AsisVozApp(TkinterDnD.Tk):
             print(f"❌ Error al obtener balance de Deepgram: {e}")
             return "❌ Error al obtener balance."
 
+
     def calcular_costo_transcripcion(self) -> str:
         """
-        Calcula cuánto costó la última transcripción en USD y COP.
+        Calcula el costo de la transcripción comparando el balance anterior y el actual.
+        Si no hay datos previos, intenta obtenerlos automáticamente.
         """
-        tasa_dolar_a_cop = 4000  # Ajusta según la tasa actual
-        if self.balance_anterior is None or self.balance_actual is None:
-            return "No hay información suficiente para calcular el costo."
+        tasa_dolar_a_cop = 4000
 
-        costo_usd = self.balance_anterior - self.balance_actual
+        # Si no hay balance actual, obtenerlo
+        if self.balance_actual is None:
+            self.obtener_balance_deepgram()
+
+        # Si no había balance anterior, usar el balance actual como base inicial
+        if self.balance_anterior is None:
+            self.balance_anterior = self.balance_actual
+            return "No hay datos anteriores para calcular el costo (primer registro tomado)."
+
+        # Obtener balance nuevo y calcular costo
+        balance_previo = self.balance_anterior
+        self.obtener_balance_deepgram()
+        balance_nuevo = self.balance_actual
+
+        costo_usd = balance_previo - balance_nuevo
         costo_cop = round(costo_usd * tasa_dolar_a_cop)
 
+        if costo_usd < 0:
+            return "Error: el costo calculado es negativo. Verifica el flujo de llamadas."
+
         return f"🧾 Costo de la transcripción: {costo_usd:.2f} USD / ${costo_cop:,} COP"
+
+
 
     def _on_select_pdf(self):
         ruta = filedialog.askopenfilename(
@@ -609,7 +627,7 @@ class AsisVozApp(TkinterDnD.Tk):
         self.nombre_pdf = f"{nombre_base}.pdf"  # Guardamos el nombre para usarlo luego
 
         print("Archivos seleccionados:", self.selected_files)
-        self._mostrar_aviso_banner("✔ Archivos cargados correctamente")
+        self._agregar_mensaje("✔ Archivos cargados correctamente")
 
     def _actualizar_lista_archivos(self):
         for widget in self.archivos_frame.winfo_children():
@@ -686,6 +704,7 @@ class AsisVozApp(TkinterDnD.Tk):
             finally:
                 self.after(0, self._ocultar_gif_cargando)
                 self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
+                self._transcripcion_exitosa()
         threading.Thread(target=tarea, daemon=True).start()
 
     def _transcripcion_exitosa(self):
@@ -696,17 +715,14 @@ class AsisVozApp(TkinterDnD.Tk):
         # Calcular el costo
         costo = self.calcular_costo_transcripcion()
 
-        # Mostrar una sola ventana emergente con éxito y costo
-        messagebox.showinfo(
-            "Transcripción completada",
-            f"✅ Transcripción terminada con éxito.\n\n{costo}"
-        )
-
         # Mostrar banner
-        self._mostrar_aviso_banner("✅ Transcripción terminada")
+        # self._agregar_mensaje("✅ Transcripción terminada")
 
         # Mensaje en el chat
-        self._agregar_mensaje("✔ Transcripción completada", remitente="bot")
+        self._agregar_mensaje(
+        f"✔ Transcripción completada {self.nombre_pdf} ",
+        remitente="bot"
+        )
 
         # Botón para abrir PDF
         self.btn_abrir_transcripcion.pack(pady=(5, 0))
