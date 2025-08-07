@@ -16,9 +16,25 @@ from PIL import Image, ImageTk
 
 import utils
 import ctypes
+from ctypes import windll, Structure, c_long, byref
 
 balance_actual= None
 balance_anterior = None
+
+
+class RECT(Structure):
+    _fields_ = [("left", c_long),
+                ("top", c_long),
+                ("right", c_long),
+                ("bottom", c_long)]
+
+def get_work_area():
+    rect = RECT()
+    SPI_GETWORKAREA = 0x0030
+    windll.user32.SystemParametersInfoA(SPI_GETWORKAREA, 0, byref(rect), 0)
+    width = rect.right - rect.left
+    height = rect.bottom - rect.top
+    return width, height
 
 class AsisVozApp(TkinterDnD.Tk):
     def __init__(self,openrouter_key, deepgram_key):
@@ -43,7 +59,11 @@ class AsisVozApp(TkinterDnD.Tk):
         if res_fisica == (1366, 768) and escala_x <= 125 and escala_y <= 125:
             self.resizable(False, False)     # <- PRIMERO bloquear el tamaño
             self.update_idletasks()          # <- Forzar update antes de maximizar
-            self.state("zoomed")             # <- Luego maximizar tipo ventana
+                    # Obtener tamaño usable de pantalla
+            usable_width, usable_height = get_work_area()
+
+            # Establecer tamaño ventana igual al área usable
+            self.geometry(f"{usable_width}x{usable_height}+0+0")           # <- Luego maximizar tipo ventana
 
         else:
             self.geometry("1000x850")
