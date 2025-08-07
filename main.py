@@ -47,7 +47,7 @@ def mostrar_ventana_licencia(root):
         traer_ventana_al_frente(ventana_licencia, modal=False)  # No modal para ventana de licencia
     else:
         ventana_licencia = VentanaLicencia(root, utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
-        
+        centrar_ventana(ventana_licencia, 500, 300)  # Usa el tamaño real de tu ventana
         # Configurar el cierre adecuado para la ventana de licencia
         original_destroy = ventana_licencia.destroy
         def safe_destroy():
