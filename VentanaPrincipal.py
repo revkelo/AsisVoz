@@ -517,34 +517,7 @@ class AsisVozApp(TkinterDnD.Tk):
         else:
             self._on_send_message()
 
-    def _mostrar_aviso_banner(self, mensaje, color="#d1f0d1", duracion=3000):
-        aviso = ctk.CTkFrame(self, fg_color=color, corner_radius=8)
-        aviso.place(relx=0.5, rely=0.95, anchor="s")  # Posición inferior centrada
-
-        ctk.CTkLabel(
-            aviso,
-            text=mensaje,
-            text_color="black",
-            font=ctk.CTkFont(size=12)
-        ).pack(padx=10, pady=5)
-
-        # Eliminar el aviso después de X milisegundos
-        self.after(duracion, aviso.destroy)
-
-    def _mostrar_aviso_banner_eliminar(self, mensaje, color="#f16046", duracion=3000):
-        aviso = ctk.CTkFrame(self, fg_color=color, corner_radius=8)
-        aviso.place(relx=0.5, rely=0.95, anchor="s")  # Posición inferior centrada
-
-        ctk.CTkLabel(
-            aviso,
-            text=mensaje,
-            text_color="black",
-            font=ctk.CTkFont(size=12)
-        ).pack(padx=10, pady=5)
-
-        # Eliminar el aviso después de X milisegundos
-        self.after(duracion, aviso.destroy)
-
+  
     def _crear_area_upload(self, contenedor):
         ctk.CTkLabel(
             contenedor,
@@ -639,7 +612,7 @@ class AsisVozApp(TkinterDnD.Tk):
             ).pack(side="right", padx=5)
 
     def _eliminar_archivo(self, ruta):
-        self._mostrar_aviso_banner_eliminar("❌ Archivo eliminado correctamente")
+      
         self.selected_files.remove(ruta)
         self._actualizar_lista_archivos()
 
@@ -683,14 +656,14 @@ class AsisVozApp(TkinterDnD.Tk):
                 self.after(0, self._mostrar_gif_cargando)
 
                 self.transcriptor.transcribir_audio(ruta, self.nombre_pdf)
-                self._mostrar_aviso_banner(f"🎧 Transcribiendo: {os.path.basename(ruta)}")
+                self._agregar_mensaje(f"🎧 Transcribiendo: {os.path.basename(ruta)}", remitente="bot")
                 self.after(0, self._transcripcion_exitosa)
             except Exception as e:
                 messagebox.showerror("Error", str(e))
             finally:
                 self.after(0, self._ocultar_gif_cargando)
                 self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
-                self._transcripcion_exitosa()
+        
         threading.Thread(target=tarea, daemon=True).start()
 
     def _transcripcion_exitosa(self):
