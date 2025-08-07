@@ -228,7 +228,7 @@ class AsisVozApp(TkinterDnD.Tk):
         imagen = Image.open(self.gif_path)
         try:
             while True:
-                frame = imagen.copy().convert("RGBA").resize((150, 150), Image.LANCZOS)
+                frame = imagen.copy().convert("RGBA").resize((200, 200), Image.LANCZOS)
                 frame_tk = ImageTk.PhotoImage(frame)
                 self.gif_frames.append(frame_tk)
                 imagen.seek(len(self.gif_frames))  # Siguiente frame
@@ -248,16 +248,24 @@ class AsisVozApp(TkinterDnD.Tk):
             self.after(100, self._mostrar_gif)  # Cambia frame cada 100 ms
 
     def _mostrar_gif_cargando(self):
-        if not hasattr(self, 'gif_frames'):
-            self.gif_frames = []
-            imagen = Image.open("media/cargando.gif")
-            try:
-                while True:
-                    frame = imagen.copy().convert("RGBA").resize((100, 100), Image.LANCZOS)
-                    self.gif_frames.append(ImageTk.PhotoImage(frame))
-                    imagen.seek(len(self.gif_frames))
-            except EOFError:
-                pass
+        self.gif_frames = []
+        imagen = Image.open("media/cargando.gif")
+        try:
+            while True:
+                frame = imagen.copy().convert("RGBA").resize((180, 180), Image.LANCZOS)
+                self.gif_frames.append(ImageTk.PhotoImage(frame))
+                imagen.seek(len(self.gif_frames))
+        except EOFError:
+            pass
+
+        if not hasattr(self, 'gif_label'):
+            self.gif_label = ctk.CTkLabel(self, text="")
+        
+        self.gif_label.place(relx=0.0, rely=1.0, x=50, y=-120, anchor="sw")
+
+        self._gif_frame_index = 0
+        self._reproducir_gif()
+
 
         if not hasattr(self, 'gif_label'):
             self.gif_label = ctk.CTkLabel(self, text="")
@@ -630,7 +638,6 @@ class AsisVozApp(TkinterDnD.Tk):
         if not self.selected_files:
             messagebox.showinfo("Sin archivos", "Primero selecciona archivos.")
             return
-        self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
 
         # Solicitar al usuario una carpeta para guardar el PDF
         carpeta_destino = filedialog.askdirectory(
@@ -654,6 +661,7 @@ class AsisVozApp(TkinterDnD.Tk):
             try:
                 ruta = self.selected_files[0]
                 self.after(0, self._mostrar_gif_cargando)
+                self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
 
                 self.transcriptor.transcribir_audio(ruta, self.nombre_pdf)
                 self._agregar_mensaje(f"🎧 Transcribiendo: {os.path.basename(ruta)}", remitente="bot")
