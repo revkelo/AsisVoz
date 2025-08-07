@@ -3,12 +3,14 @@ import json
 import time
 import base64
 import re
+from tkinter import messagebox
 import requests
 
 
 class OpenRouterClient:
     def __init__(self, api_key: str):
         self.api_key = api_key
+        
         # Punto final del API de OpenRouter
         self.endpoint = "https://openrouter.ai/api/v1/chat/completions"
         
@@ -39,7 +41,8 @@ class OpenRouterClient:
             return True
         else:
             # Ya estamos en fallback y sigue dando 429
-            print("❌ Error 429 persistente, incluso con modelo fallback.")
+            print("Manda un mensaje al soporte técnico.")
+            messagebox.showerror("Alerta", "Manda un mensaje al soporte técnico.")
             return False
 
     def _incrementar_contador_fallback(self):

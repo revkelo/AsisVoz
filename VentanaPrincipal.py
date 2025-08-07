@@ -568,7 +568,7 @@ class AsisVozApp(TkinterDnD.Tk):
         self._actualizar_lista_archivos()
         nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
         self.nombre_pdf = f"{nombre_base}.docx"
-        self._agregar_mensaje("✔ Archivo cargado correctamente")
+        self.agregar_mensaje("✔ Archivo cargado correctamente")
 
 
     def _on_browse_files(self):
@@ -593,7 +593,7 @@ class AsisVozApp(TkinterDnD.Tk):
         self.nombre_pdf = f"{nombre_base}.docx"
 
         print("Archivo seleccionado:", self.selected_files[0])
-        self._agregar_mensaje("✔ Archivo cargado correctamente")
+        self.agregar_mensaje("✔ Archivo cargado correctamente")
 
     def _actualizar_lista_archivos(self):
         for widget in self.archivos_frame.winfo_children():
@@ -664,7 +664,7 @@ class AsisVozApp(TkinterDnD.Tk):
                 self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
 
                 self.transcriptor.transcribir_audio(ruta, self.nombre_pdf)
-                self._agregar_mensaje(f"🎧 Transcribiendo: {os.path.basename(ruta)}", remitente="bot")
+                self.agregar_mensaje(f"🎧 Transcribiendo: {os.path.basename(ruta)}", remitente="bot")
                 self.after(0, self._transcripcion_exitosa)
             except Exception as e:
                 messagebox.showerror("Error", str(e))
@@ -683,10 +683,10 @@ class AsisVozApp(TkinterDnD.Tk):
         costo = self.calcular_costo_transcripcion()
 
         # Mostrar banner
-        # self._agregar_mensaje("✅ Transcripción terminada")
+ 
 
         # Mensaje en el chat
-        self._agregar_mensaje(
+        self.agregar_mensaje(
         f"✔ Transcripción completada {self.nombre_pdf} ",
         remitente="bot"
         )
@@ -732,11 +732,11 @@ class AsisVozApp(TkinterDnD.Tk):
             return
 
         self.entry_message.delete(0, "end")
-        self._agregar_mensaje(texto, remitente="usuario")
+        self.agregar_mensaje(texto, remitente="usuario")
 
         hilo = threading.Thread(target=self._worker_llm, args=(texto,))
         hilo.daemon = True
-        self._mensaje_cargando_id = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
+        self._mensaje_cargando_id = self.agregar_mensaje("Cargando respuesta...", remitente="bot")
         hilo.start()
 
     def _worker_llm(self, prompt: str):
@@ -769,12 +769,12 @@ class AsisVozApp(TkinterDnD.Tk):
             return
 
         texto_usuario = f"{prompt}\n(Consulta con PDF: {os.path.basename(pdf_path)})"
-        self._agregar_mensaje(texto_usuario, remitente="usuario")
+        self.agregar_mensaje(texto_usuario, remitente="usuario")
         self.entry_message.delete(0, "end")
 
         hilo = threading.Thread(target=self._worker_llm_pdf, args=(pdf_path, prompt))
         hilo.daemon = True
-        self._mensaje_cargando_id = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
+        self._mensaje_cargando_id = self.agregar_mensaje("Cargando respuesta...", remitente="bot")
         hilo.start()
 
     def _worker_llm_pdf(self, pdf_path: str, prompt: str):
@@ -800,9 +800,9 @@ class AsisVozApp(TkinterDnD.Tk):
                     break
             self._mensaje_cargando_id = None
         else:
-            self._agregar_mensaje(respuesta, remitente="bot")
+            self.agregar_mensaje(respuesta, remitente="bot")
 
-    def _agregar_mensaje(self, texto, remitente="usuario"):
+    def agregar_mensaje(self, texto, remitente="usuario"):
         """
         Crea una burbuja de chat con ancho flexible y altura automática:
         - Si remitente="usuario", se alinea a la derecha con fondo azul claro.
