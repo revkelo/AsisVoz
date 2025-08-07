@@ -12,7 +12,7 @@ from PIL import Image
 
 
 # Configuración del tema
-ctk.set_appearance_mode("system")
+ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
 # Lista de licencias válidas
