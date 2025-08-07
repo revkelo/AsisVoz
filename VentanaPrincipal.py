@@ -681,6 +681,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
         if not carpeta_destino:
             messagebox.showinfo("Cancelado", "No se seleccionó ninguna carpeta.")
+            self.btn_transcribir.configure(text="Transcribir", state="normal")
             return
 
         nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
