@@ -210,6 +210,14 @@ class AsisVozApp(TkinterDnD.Tk):
 
         if os.path.exists(self.gif_path):
             self._cargar_frames_gif()
+            # ─── Menú superior ───────────────────────────────────────────────
+            
+        menubar = tk.Menu(self)
+        self.config(menu=menubar)
+
+        self.historial_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Historial", menu=self.historial_menu)
+        self._actualizar_menu_historial()  # <- Llamado después de definir historial_menu
 
 
     def _cargar_frames_gif(self):
@@ -268,30 +276,9 @@ class AsisVozApp(TkinterDnD.Tk):
         if hasattr(self, '_gif_job'):
             self.after_cancel(self._gif_job)
 
-# Ruta de la imagen
-        ruta = "media/.gif"  # Reemplaza con tu ruta
-
-        if os.path.exists(ruta):
-            imagen = Image.open(ruta)
-            imagen = imagen.convert("RGBA")
-
-            ctk_imagen = ctk.CTkImage(light_image=imagen, dark_image=imagen, size=(150, 150))
-            self.label = ctk.CTkLabel(self, image=ctk_imagen, text="")  # text="" evita mostrar texto
-            self.label.place(relx=0.0, rely=1.0, anchor="sw")
-            self.imagen_ref = ctk_imagen  # 🔒 Mantener referencia
-        else:
-            print("❌ Imagen no encontrada.")
 
 
 
-
-        # Menú superior
-        menubar = tk.Menu(self)
-        self.config(menu=menubar)
-
-        self.historial_menu = tk.Menu(menubar, tearoff=0)
-        self._actualizar_menu_historial()
-        menubar.add_cascade(label="Historial", menu=self.historial_menu)
 
         # Actualizar binding del <Return>
         self.entry_message.bind("<Return>", lambda event: self._on_send_based_on_switch())
@@ -480,6 +467,10 @@ class AsisVozApp(TkinterDnD.Tk):
         """
         Refresca el menú "Historial" con las últimas transcripciones.
         """
+        if not hasattr(self, 'historial_menu'):
+            print("⚠️ historial_menu no está definido aún.")
+            return
+
         self.historial_menu.delete(0, tk.END)
         if not self.historial_transcripciones:
             self.historial_menu.add_command(label="(Sin historial)", state="disabled")
@@ -490,6 +481,7 @@ class AsisVozApp(TkinterDnD.Tk):
                     label=nombre,
                     command=lambda r=ruta: self._abrir_transcripcion_desde_historial(r)
                 )
+
 
     def _abrir_transcripcion_desde_historial(self, ruta_pdf):
         if not os.path.exists(ruta_pdf):
