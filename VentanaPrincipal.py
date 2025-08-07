@@ -137,8 +137,12 @@ class AsisVozApp(TkinterDnD.Tk):
         self._crear_area_upload(upload_border)
 
         # Lista de archivos seleccionados
+  
+        
+        # Lista de archivos seleccionados (modo expandido)
         self.archivos_frame = ctk.CTkFrame(left_frame, fg_color="white", corner_radius=10)
-        self.archivos_frame.pack(pady=(5, 20), fill="x")
+        self.archivos_frame.pack(pady=(5, 20), fill="both", expand=True)  # Ocupa todo
+
 
         # Botón "Transcribir"
         self.btn_transcribir = ctk.CTkButton(
@@ -148,6 +152,7 @@ class AsisVozApp(TkinterDnD.Tk):
             command=self._on_transcribir
         )
         self.btn_transcribir.pack(pady=(10, 5), fill="x")
+        self.btn_transcribir.pack_forget()
 
         # Botón "Abrir transcripción" (oculto inicialmente)
         self.btn_abrir_transcripcion = ctk.CTkButton(
@@ -482,6 +487,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Muestra el frame (por si estaba oculto)
         self.archivo_frame.pack(side="top", fill="x", pady=(0, 5))
+        
 
 
     def _eliminar_archivito(self, ruta):
@@ -495,6 +501,8 @@ class AsisVozApp(TkinterDnD.Tk):
             self.word_path = None
 
         self.archivo_frame.pack_forget()
+        if not self.selected_files:
+            self.btn_transcribir.pack_forget()
 
 
 
@@ -646,6 +654,8 @@ class AsisVozApp(TkinterDnD.Tk):
             self._mostrar_archivo_seleccionado(ruta_abs)
             messagebox.showinfo("Archivo cargado", f"Word seleccionado:\n{os.path.basename(ruta_abs)}")
             self.selected_files.append(ruta_abs)
+            print( f"🔽 Archivo Word seleccionado: {ruta_abs}")
+            
         else:
             self.word_path = None
 
@@ -772,6 +782,10 @@ class AsisVozApp(TkinterDnD.Tk):
             return
 
         self.selected_files = [archivo_valido]  # Solo uno
+        self.archivos_frame.pack_forget()  # Quita el anterior pack
+        self.archivos_frame.pack(pady=(5, 20), fill="x")  # Modo compacto
+
+        self.btn_transcribir.pack(pady=(10, 5), fill="x")
         self._actualizar_lista_archivos()
         nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
 
@@ -797,14 +811,19 @@ class AsisVozApp(TkinterDnD.Tk):
 
         self.selected_files = [ruta]  # Sobrescribe con un solo archivo
         self._actualizar_lista_archivos()
+        self.archivos_frame.pack_forget()  # Quita el anterior pack
+        self.archivos_frame.pack(pady=(5, 20), fill="x")  # Modo compacto
 
         nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
         self.nombre_word = f"{nombre_base}.docx"
 
         print("Archivo seleccionado:", self.selected_files[0])
         self.agregar_mensaje("✔ Archivo cargado correctamente")
+        self.btn_transcribir.pack(pady=(10, 5), fill="x")
 
     def _actualizar_lista_archivos(self):
+        
+        
         for widget in self.archivos_frame.winfo_children():
             widget.destroy()
 
