@@ -360,10 +360,10 @@ class AsisVozApp(TkinterDnD.Tk):
             mensaje_visual += f"\n[Archivo: {nombre_archivo}]"
 
         # Mostrar mensaje del usuario
-        self._agregar_mensaje(mensaje_visual, remitente="usuario")
+        self.agregar_mensaje(mensaje_visual, remitente="usuario")
 
         # Mostrar burbuja "cargando..."
-        _, label_bot = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
+        _, label_bot = self.agregar_mensaje("Cargando respuesta...", remitente="bot")
 
         # Guarda copia del path del archivo ANTES de borrarlo
         ruta_word_local = self.word_path if hasattr(self, "word_path") else None
@@ -836,7 +836,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
 
                 self.transcriptor.transcribir_audio(ruta, self.nombre_word)
-                #self._agregar_mensaje(f"🎧 Transcribiendo: {os.path.basename(ruta)}", remitente="bot")
+               
 
                 self.after(0, self._transcripcion_exitosa)
             except Exception as e:
@@ -860,7 +860,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Mensaje en el chat
 
-        self._agregar_mensaje(
+        self.agregar_mensaje(
         f"✔ Transcripción completada {self.nombre_word} ",
 
         remitente="bot"
@@ -945,7 +945,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
 
         texto_usuario = f"{prompt}\n(Consulta con Word: {os.path.basename(word_path)})"
-        self._agregar_mensaje(texto_usuario, remitente="usuario")
+        self.agregar_mensaje(texto_usuario, remitente="usuario")
 
         self.entry_message.delete(0, "end")
 
