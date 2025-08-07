@@ -60,7 +60,7 @@ class AsisVozApp(TkinterDnD.Tk):
             except Exception:
                 pass
         self.centrar_ventana()
-        self.resizable(True, True)  # Permitir redimensionar
+
         self.selected_files = []
 
         self.auxiliar = ""
