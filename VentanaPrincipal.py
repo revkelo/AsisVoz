@@ -501,8 +501,9 @@ class AsisVozApp(TkinterDnD.Tk):
             self.word_path = None
 
         self.archivo_frame.pack_forget()
-        if not self.selected_files:
-            self.btn_transcribir.pack_forget()
+        self.btn_transcribir.pack_forget()
+
+            
 
 
 
@@ -856,13 +857,14 @@ class AsisVozApp(TkinterDnD.Tk):
         if respuesta:  # Solo procede si el usuario hace clic en "Sí"
             if ruta in self.selected_files:
                 self.selected_files.remove(ruta)
+                self.btn_abrir_transcripcion.pack_forget()
+                self.btn_transcribir.pack_forget()
+                self.archivos_frame.pack_forget()  # Quita el anterior pack
+                self.archivos_frame.pack(pady=(5, 20), fill="both", expand=True)  # Ocupa todo
+
 
             self._actualizar_lista_archivos()
 
-            # Oculta el botón si ya no hay archivos
-            if not self.selected_files:
-                if hasattr(self, "btn_abrir_transcripcion") and self.btn_abrir_transcripcion:
-                    self.btn_abrir_transcripcion.pack_forget()
 
 
 
