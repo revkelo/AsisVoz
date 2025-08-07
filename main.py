@@ -295,5 +295,5 @@ if __name__ == "__main__":
     utils.descifrar_y_extraer_claves()
     print("Clave Deepgram:", utils.DEEPGRAM_API_KEY)
     print("Clave OpenRouter:", utils.OPENROUTER_API_KEY)
-    utils.reproducir_sonido("finalizado")
+    utils.reproducir_sonido("inicio")
     crear_ventana_principal()
