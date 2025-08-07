@@ -32,6 +32,18 @@ def validar_api_key_deepgram(api_key):
         print(f"❌ Error al conectar con Deepgram: {e}")
         return False
 
+import winsound
+
+def reproducir_sonido(tipo="finalizado"):
+    if tipo == "finalizado":
+        winsound.MessageBeep(winsound.MB_OK)
+    elif tipo == "error":
+        winsound.MessageBeep(winsound.MB_ICONHAND)
+    elif tipo == "inicio":
+        winsound.MessageBeep(winsound.MB_ICONASTERISK)
+    else:
+        print("Tipo de sonido no válido.")
+
 
 
 """Devuelve ruta absoluta para ejecución directa"""

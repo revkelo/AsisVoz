@@ -110,6 +110,7 @@ def validar_licencia(self):
 # ✅ Lógica para iniciar app solo si ya hay licencia
 def iniciar_si_hay_licencia(root):
     if licencia_ya_registrada():
+        
         iniciar_asisvoz(root)
     else:
         messagebox.showwarning("Licencia Requerida", "⚠️ Debe ingresar una licencia válida.")
@@ -195,6 +196,7 @@ def centrar_ventana(ventana, ancho, alto):
     
 
 def iniciar_asisvoz(root):
+    
     if not licencia_ya_registrada():
         # Mostrar advertencia
         messagebox.showwarning("Licencia requerida", "⚠️ Debe ingresar una licencia válida antes de continuar.")
@@ -293,4 +295,5 @@ if __name__ == "__main__":
     utils.descifrar_y_extraer_claves()
     print("Clave Deepgram:", utils.DEEPGRAM_API_KEY)
     print("Clave OpenRouter:", utils.OPENROUTER_API_KEY)
+    utils.reproducir_sonido("finalizado")
     crear_ventana_principal()

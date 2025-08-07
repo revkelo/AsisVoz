@@ -16,6 +16,8 @@ from PIL import Image, ImageTk
 
 import utils
 
+balance_actual= None
+balance_anterior = None
 
 class AsisVozApp(TkinterDnD.Tk):
     def __init__(self,openrouter_key, deepgram_key):
@@ -218,6 +220,8 @@ class AsisVozApp(TkinterDnD.Tk):
         self.historial_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Historial", menu=self.historial_menu)
         self._actualizar_menu_historial()  # <- Llamado después de definir historial_menu
+        utils.reproducir_sonido("inicio")
+        
 
 
     def _cargar_frames_gif(self):
@@ -347,8 +351,7 @@ class AsisVozApp(TkinterDnD.Tk):
                                     bubble_child.configure(wraplength=new_wraplength)
         except Exception as e:
             print(f"Error actualizando wraplength: {e}")
-    balance_actual= None
-    balance_anterior = None
+ 
 
     def obtener_balance_deepgram(self) -> str:
         """
@@ -419,7 +422,6 @@ class AsisVozApp(TkinterDnD.Tk):
             return "Error: el costo calculado es negativo. Verifica el flujo de llamadas."
 
         return f"🧾 Costo de la transcripción: {costo_usd:.2f} USD / ${costo_cop:,} COP"
-
 
 
     def _on_select_pdf(self):
