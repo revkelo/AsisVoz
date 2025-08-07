@@ -575,51 +575,42 @@ class AsisVozApp(TkinterDnD.Tk):
         archivos = self.tk.splitlist(event.data)
         extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
 
-        archivos_validos = [archivo for archivo in archivos if archivo.lower().endswith(extensiones_validas)]
+        archivo_valido = next((archivo for archivo in archivos if archivo.lower().endswith(extensiones_validas)), None)
 
-        if not archivos_validos:
-            messagebox.showerror("Error", "Por favor selecciona solo archivos de audio válidos.")
+        if not archivo_valido:
+            messagebox.showerror("Error", "Por favor arrastra un archivo de audio válido.")
             return
 
-        if len(archivos_validos) > 5:
-            messagebox.showerror("Error", "Solo puedes seleccionar hasta 5 archivos.")
-            return
-
-        self.selected_files = list(archivos_validos)
+        self.selected_files = [archivo_valido]  # Solo uno
         self._actualizar_lista_archivos()
+        nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
+        self.nombre_pdf = f"{nombre_base}.docx"
+        self._agregar_mensaje("✔ Archivo cargado correctamente")
+
 
     def _on_browse_files(self):
-        tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus"),]
-        rutas = filedialog.askopenfilenames(
-            title="Selecciona archivos de audio",
+        tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus")]
+        ruta = filedialog.askopenfilename(
+            title="Selecciona un archivo de audio",
             filetypes=tipos_permitidos
         )
 
+        if not ruta:
+            return
+
         extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
-        archivos_validos = [ruta for ruta in rutas if ruta.lower().endswith(extensiones_validas)]
-
-        if not archivos_validos:
-                messagebox.showerror("Error", "Por favor selecciona solo archivos de audio válidos.")
-        else:
-                # Aquí haces lo que necesitas con los archivos
-                print("Archivos seleccionados:")
-                for archivo in archivos_validos:
-                    print(archivo)
-
-        if not rutas:
+        if not ruta.lower().endswith(extensiones_validas):
+            messagebox.showerror("Error", "Por favor selecciona un archivo de audio válido.")
             return
 
-        if len(rutas) > 5:
-            messagebox.showerror("Error", "Solo puedes seleccionar hasta 5 archivos.")
-            return
-
-        self.selected_files = list(archivos_validos)
+        self.selected_files = [ruta]  # Sobrescribe con un solo archivo
         self._actualizar_lista_archivos()
-        nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
-        self.nombre_pdf = f"{nombre_base}.pdf"  # Guardamos el nombre para usarlo luego
 
-        print("Archivos seleccionados:", self.selected_files)
-        self._agregar_mensaje("✔ Archivos cargados correctamente")
+        nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
+        self.nombre_pdf = f"{nombre_base}.docx"
+
+        print("Archivo seleccionado:", self.selected_files[0])
+        self._agregar_mensaje("✔ Archivo cargado correctamente")
 
     def _actualizar_lista_archivos(self):
         for widget in self.archivos_frame.winfo_children():
@@ -679,7 +670,7 @@ class AsisVozApp(TkinterDnD.Tk):
         nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
 
         nombre_base = (nombre_base[:70] + '...') if len(nombre_base) > 50 else nombre_base
-        self.nombre_pdf = os.path.join(carpeta_destino, f"{nombre_base}.pdf")
+        self.nombre_pdf = os.path.join(carpeta_destino, f"{nombre_base}.docx")
         self.btn_transcribir.configure(text="Transcribir", state="enable")
             
         
@@ -729,7 +720,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
     def _on_open_transcripcion(self):
         if not hasattr(self, "nombre_pdf"):
-            messagebox.showerror("Error", "No se ha generado ningún PDF.")
+            messagebox.showerror("Error", "No se ha generado ningún Word.")
             return
         
 

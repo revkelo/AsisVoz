@@ -2,6 +2,11 @@ import os
 import time
 from deepgram import DeepgramClient, PrerecordedOptions
 from fpdf import FPDF
+from docx import Document
+from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from datetime import datetime
+import locale
 
 
 class DeepgramPDFTranscriber:
@@ -79,7 +84,12 @@ class DeepgramPDFTranscriber:
             if not transcripciones:
                 raise ValueError("⚠ No se detectó voz en el archivo. Verifica que contenga audio hablado.")
 
-            self.generar_pdf(nombre_salida, transcripciones)
+            #self.generar_pdf(nombre_salida, transcripciones)
+            self.generar_word(nombre_salida, transcripciones, ruta_audio)
+
+
+
+
 
             fin = time.time()
             print(f"\n⏱ Tiempo de ejecución: {fin - inicio:.2f} segundos")
@@ -87,4 +97,48 @@ class DeepgramPDFTranscriber:
         except Exception as e:
             print(f"❌ Exception: {e}")
             raise  # Opcional: relanza para que la GUI también lo muestre si lo capturas desde allá
+
+    def obtener_fecha_creacion(self, ruta_archivo):
+        try:
+            # En Windows, os.path.getctime da la fecha de creación
+            fecha_creacion = os.path.getctime(ruta_archivo)
+            fecha_str = f" Fecha de creación: {time.strftime('%Y-%m-%d %I:%M:%S %p', time.localtime(fecha_creacion))}"
+            return fecha_str
+        except Exception as e:
+            return f" Fecha de creación (modificación): Error al obtener la fecha: {e}"
+
+
+    def generar_word(self, nombre_salida: str, transcripciones: list[str], ruta_audio: str):
+        doc = Document()
+
+        # Título centrado y en negrita
+        titulo = doc.add_heading("Transcripción de audio", level=1)
+        titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        # Nombre del archivo (solo el nombre, no toda la ruta)
+        nombre_archivo = os.path.basename(ruta_audio)
+        archivo_parrafo = doc.add_paragraph(f"Archivo: {nombre_archivo}")
+        archivo_parrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        archivo_parrafo.runs[0].font.size = Pt(10)
+
+        fecha_formateada = self.obtener_fecha_creacion(ruta_audio);
+
+        fecha_parrafo = doc.add_paragraph(f"Fecha de creación: {fecha_formateada}")
+        fecha_parrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        fecha_parrafo.runs[0].font.size = Pt(10)
+
+        # Espacio
+        doc.add_paragraph("")
+
+        # Texto de la transcripción
+        for linea in transcripciones:
+            parrafo = doc.add_paragraph()
+            run = parrafo.add_run(linea)
+            run.font.size = Pt(12)
+
+        if not nombre_salida.lower().endswith(".docx"):
+            nombre_salida += ".docx"
+
+        doc.save(nombre_salida)
+        print(f"\n✅ Word guardado como '{nombre_salida}'")
 
