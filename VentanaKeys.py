@@ -39,9 +39,9 @@ def obtener_project_id_deepgram(api_key):
 
 class VentanaLicencia(ctk.CTkToplevel):
     def __init__(self, root, openrouter_key, deepgram_key):
-
         super().__init__(root)
 
+        self.center_window()
         self.title("Registrar Licencia")
         self.geometry("500x250")
         ico_path = utils.ruta_absoluta("media/logo.ico")
@@ -51,9 +51,8 @@ class VentanaLicencia(ctk.CTkToplevel):
             except Exception:
                 pass
         self.resizable(False, False)
-        self.center_window()
 
-        ctk.set_appearance_mode("system")
+        ctk.set_appearance_mode("light")  # ⚠️ Debe ser "light", no "lights"
         ctk.set_default_color_theme("blue")
 
         # Deepgram API Key
@@ -80,7 +79,6 @@ class VentanaLicencia(ctk.CTkToplevel):
         frame_openrouter.pack(pady=5, padx=10, fill="x")
 
         self.entry_openrouter = ctk.CTkEntry(frame_openrouter, show="*", width=360)
-  
         if openrouter_key:
             self.entry_openrouter.insert(0, openrouter_key)
         self.entry_openrouter.pack(side="left", padx=(0, 10), expand=True, fill="x")
@@ -97,6 +95,9 @@ class VentanaLicencia(ctk.CTkToplevel):
         ctk.CTkButton(self, text="Guardar Claves", command=self.guardar_keys, width=200).pack(pady=25)
 
         self.protocol("WM_DELETE_WINDOW", lambda: self.withdraw())
+
+
+      
 
     def toggle_deepgram_visibility(self):
         self.entry_deepgram.configure(show="" if self.show_deepgram.get() else "*")
