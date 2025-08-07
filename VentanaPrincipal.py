@@ -353,7 +353,7 @@ class AsisVozApp(TkinterDnD.Tk):
             messagebox.showwarning("Mensaje vacío", "Escribe un mensaje para enviar.")
             return
 
-        # Si hay archivo adjunto, añadimos su nombre
+        # Si hay archivo adjunto, añadimos su nombre al mensaje visual
         mensaje_visual = mensaje
         if hasattr(self, "word_path") and self.word_path:
             nombre_archivo = os.path.basename(self.word_path)
@@ -365,19 +365,21 @@ class AsisVozApp(TkinterDnD.Tk):
         # Mostrar burbuja "cargando..."
         _, label_bot = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
 
-        # Limpiar campo de entrada
-        self.entry_message.delete(0, "end")
+        # Guarda copia del path del archivo ANTES de borrarlo
+        ruta_word_local = self.word_path if hasattr(self, "word_path") else None
 
+        # Limpia UI
+        self.entry_message.delete(0, "end")
         for widget in self.archivo_frame.winfo_children():
             widget.destroy()
         self.archivo_frame.pack_forget()
         self.word_path = None
 
-
+        # Ejecuta hilo de procesamiento
         def procesar_respuesta():
             try:
-                if hasattr(self, "word_path") and self.word_path:
-                    respuesta, duracion = self.router_client.preguntar_con_word(self.word_path, mensaje)
+                if ruta_word_local:
+                    respuesta, duracion = self.router_client.preguntar_con_word(ruta_word_local, mensaje)
                 else:
                     respuesta, duracion = self.router_client.preguntar_texto(mensaje)
 
@@ -388,6 +390,7 @@ class AsisVozApp(TkinterDnD.Tk):
                 messagebox.showerror("Error", str(e))
 
         threading.Thread(target=procesar_respuesta, daemon=True).start()
+
 
 
     def _mostrar_archivo_seleccionado(self, ruta_archivo):
@@ -436,8 +439,11 @@ class AsisVozApp(TkinterDnD.Tk):
         else:
             print(f"⚠️ El archivo '{ruta}' no está en la lista.")
 
+        if hasattr(self, "word_path") and self.word_path == ruta:
+            self.word_path = None
+
         self.archivo_frame.pack_forget()
-        self.word_path = None
+
 
 
 
@@ -584,8 +590,9 @@ class AsisVozApp(TkinterDnD.Tk):
         if ruta:
             ruta_abs = os.path.abspath(ruta)
             self.word_path = ruta_abs
-            messagebox.showinfo("Archivo cargado", f"Word seleccionado:\n{os.path.basename(ruta_abs)}")
+
             self._mostrar_archivo_seleccionado(ruta_abs)
+            messagebox.showinfo("Archivo cargado", f"Word seleccionado:\n{os.path.basename(ruta_abs)}")
             self.selected_files.append(ruta_abs)
         else:
             self.word_path = None
