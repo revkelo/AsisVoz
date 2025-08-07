@@ -41,8 +41,10 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Aplicar configuración de ventana según resolución y escala
         if res_fisica == (1366, 768) and escala_x <= 125 and escala_y <= 125:
-            self.state("zoomed")  # Pantalla completa tipo ventana
-            self.resizable(False, False)
+            self.resizable(False, False)     # <- PRIMERO bloquear el tamaño
+            self.update_idletasks()          # <- Forzar update antes de maximizar
+            self.state("zoomed")             # <- Luego maximizar tipo ventana
+
         else:
             self.geometry("1000x850")
             self.minsize(800, 600)
