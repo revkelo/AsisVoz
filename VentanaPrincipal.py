@@ -13,28 +13,63 @@ import tkinter as tk
 import platform
 import subprocess
 from PIL import Image, ImageTk
-
-import utils
 import ctypes
-from ctypes import windll, Structure, c_long, byref
+from ctypes import wintypes
+import utils
 
 balance_actual= None
 balance_anterior = None
 
-
-class RECT(Structure):
-    _fields_ = [("left", c_long),
-                ("top", c_long),
-                ("right", c_long),
-                ("bottom", c_long)]
-
-def get_work_area():
-    rect = RECT()
+def obtener_area_trabajo():
+    """Devuelve el área de trabajo sin incluir la barra de tareas (en Windows)"""
     SPI_GETWORKAREA = 0x0030
-    windll.user32.SystemParametersInfoA(SPI_GETWORKAREA, 0, byref(rect), 0)
-    width = rect.right - rect.left
-    height = rect.bottom - rect.top
-    return width, height
+    rect = ctypes.wintypes.RECT()
+    ctypes.windll.user32.SystemParametersInfoW(SPI_GETWORKAREA, 0, ctypes.byref(rect), 0)
+    return rect.left, rect.top, rect.right, rect.bottom
+
+def obtener_resoluciones():
+    """Devuelve resolución lógica (afectada por escalado) y resolución física"""
+    user32 = ctypes.windll.user32
+    user32.SetProcessDPIAware()
+    
+    res_fisica = (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
+    
+    root_temp = tk.Tk()
+    root_temp.withdraw()
+    res_logica = (root_temp.winfo_screenwidth(), root_temp.winfo_screenheight())
+    root_temp.destroy()
+    
+    return res_logica, res_fisica
+
+def calcular_escala(res_logica, res_fisica):
+    """Calcula el porcentaje de escalado aplicado"""
+    escala_x = int((res_fisica[0] / res_logica[0]) * 100)
+    escala_y = int((res_fisica[1] / res_logica[1]) * 100)
+    return escala_x, escala_y
+
+
+def aplicar_pantalla_completa_sin_barra(ventana):
+    """Ajusta la ventana al área visible de la pantalla (sin cubrir la barra de tareas)"""
+    res_logica, res_fisica = obtener_resoluciones()
+    escala_x, escala_y = calcular_escala(res_logica, res_fisica)
+    
+    left, top, right, bottom = obtener_area_trabajo()
+    ancho_visible = right - left
+    alto_visible = bottom - top
+    
+    # Corrección para el desplazamiento del borde de la ventana
+    # En Windows, las ventanas tienen un borde invisible que causa el offset
+    offset_x = -9  # Valor típico para compensar el borde izquierdo
+    offset_y = 0   # Sin offset vertical necesario para la parte superior
+    ventana.resizable(False, False)  # Permitir redimensionar
+    ventana.geometry(f"{ancho_visible}x{alto_visible-50}+{left + offset_x}+{top + offset_y}")
+    print(f"{ancho_visible}x{alto_visible}+{left + offset_x}+{top + offset_y}")
+    
+    print(f"Resolución lógica: {res_logica}")
+    print(f"Resolución física: {res_fisica}")
+    print(f"Escala: {escala_x}% x, {escala_y}% y")
+    print(f"Área visible sin barra: {ancho_visible}x{alto_visible}")
+    print(f"Posición corregida: x={left + offset_x}, y={top + offset_y}")
 
 class AsisVozApp(TkinterDnD.Tk):
     def __init__(self,openrouter_key, deepgram_key):
@@ -43,35 +78,8 @@ class AsisVozApp(TkinterDnD.Tk):
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
         self.word_path = None
-        
-        # Obtener resoluciones física y lógica
-        user32 = ctypes.windll.user32
-        user32.SetProcessDPIAware()
-        res_fisica = (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
-
-        res_logica = (self.winfo_screenwidth(), self.winfo_screenheight())
-
-        # Calcular escalado
-        escala_x = int((res_fisica[0] / res_logica[0]) * 100)
-        escala_y = int((res_fisica[1] / res_logica[1]) * 100)
-
-        # Aplicar configuración de ventana según resolución y escala
-        if res_fisica == (1366, 768) and escala_x <= 125 and escala_y <= 125:
-            self.resizable(False, False)     # <- PRIMERO bloquear el tamaño
-            self.update_idletasks()          # <- Forzar update antes de maximizar
-                    # Obtener tamaño usable de pantalla
-            usable_width, usable_height = get_work_area()
-
-            # Establecer tamaño ventana igual al área usable
-            self.geometry(f"{usable_width}x{usable_height}+0+0")           # <- Luego maximizar tipo ventana
-
-        else:
-            self.geometry("1000x850")
-            self.minsize(800, 600)
-            self.resizable(True, True)
-
-        
-        
+        self.title("AsisVoz")
+        aplicar_pantalla_completa_sin_barra(self)
         self.minsize(800, 600)  # Tamaño mínimo de ventana
         ico_path = utils.ruta_absoluta("media/logo.ico")
         if os.path.exists(ico_path):
@@ -79,7 +87,7 @@ class AsisVozApp(TkinterDnD.Tk):
                 self.iconbitmap(ico_path)
             except Exception:
                 pass
-        self.centrar_ventana()
+        
 
         self.selected_files = []
 
