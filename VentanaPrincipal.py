@@ -15,6 +15,7 @@ import subprocess
 from PIL import Image, ImageTk
 
 import utils
+import ctypes
 
 balance_actual= None
 balance_anterior = None
@@ -26,8 +27,29 @@ class AsisVozApp(TkinterDnD.Tk):
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
         self.word_path = None
-        self.title("AsisVoz")
-        self.geometry("1000x850")
+        
+        # Obtener resoluciones física y lógica
+        user32 = ctypes.windll.user32
+        user32.SetProcessDPIAware()
+        res_fisica = (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
+
+        res_logica = (self.winfo_screenwidth(), self.winfo_screenheight())
+
+        # Calcular escalado
+        escala_x = int((res_fisica[0] / res_logica[0]) * 100)
+        escala_y = int((res_fisica[1] / res_logica[1]) * 100)
+
+        # Aplicar configuración de ventana según resolución y escala
+        if res_fisica == (1366, 768) and escala_x <= 125 and escala_y <= 125:
+            self.state("zoomed")  # Pantalla completa tipo ventana
+            self.resizable(False, False)
+        else:
+            self.geometry("1000x850")
+            self.minsize(800, 600)
+            self.resizable(True, True)
+
+        
+        
         self.minsize(800, 600)  # Tamaño mínimo de ventana
         ico_path = utils.ruta_absoluta("media/logo.ico")
         if os.path.exists(ico_path):
