@@ -4,6 +4,7 @@ import time
 import base64
 import re
 import requests
+from docx import Document
 
 
 class OpenRouterClient:
@@ -51,22 +52,29 @@ class OpenRouterClient:
             if self.contador_fallback >= self.max_peticiones_fallback:
                 print(f"✅ Completadas {self.max_peticiones_fallback} peticiones con modelo fallback. Volviendo al modelo principal ({self.modelo_principal})...")
 
-    def preguntar_con_pdf(self, pdf_path: str, pregunta: str) -> tuple[str, float]:
+    def preguntar_con_word(self, word_path: str, pregunta: str) -> tuple[str, float]:
         """
-        Envía un PDF (codificado en base64) junto con una pregunta al endpoint de OpenRouter,
-        usando el plugin "file-parser". Devuelve (texto_limpio, tiempo_en_segundos).
+        Extrae texto de un archivo Word y envía la pregunta a OpenRouter como texto plano.
         """
-        if not os.path.isfile(pdf_path):
-            raise FileNotFoundError(f"Archivo no encontrado: {pdf_path}")
+        if not os.path.isfile(word_path):
+            raise FileNotFoundError(f"Archivo no encontrado: {word_path}")
 
-        # Leemos el PDF y lo codificamos en Base64
-        with open(pdf_path, "rb") as f:
-            pdf_base64 = base64.b64encode(f.read()).decode("utf-8")
+        # Extraer el texto del archivo Word
+        texto_extraido = self._extraer_texto_de_word(word_path)
 
-        # Intento inicial
-        return self._hacer_peticion_con_fallback(pdf_path, pregunta, pdf_base64)
+        # Construir prompt
+        prompt = f"{texto_extraido}\n\nCon base en el texto anterior, responde lo siguiente:\n{pregunta}"
 
-    def _hacer_peticion_con_fallback(self, pdf_path: str, pregunta: str, pdf_base64: str) -> tuple[str, float]:
+        # Usar el método existente para enviar texto
+        return self.preguntar_texto(prompt)
+
+    def _extraer_texto_de_word(self, word_path: str) -> str:
+        """Lee y concatena el texto de todas las secciones del .docx"""
+        doc = Document(word_path)
+        texto = "\n".join([p.text for p in doc.paragraphs if p.text.strip() != ""])
+        return texto
+
+    def _hacer_peticion_con_fallback(self, word_path: str, pregunta: str, word_base64: str) -> tuple[str, float]:
         """Hace la petición con manejo automático de fallback en caso de error 429"""
         max_intentos = 2  # Intento con modelo principal + intento con fallback
         
@@ -83,8 +91,8 @@ class OpenRouterClient:
                             {
                                 "type": "file",
                                 "file": {
-                                    "filename": os.path.basename(pdf_path),
-                                    "file_data": f"data:application/pdf;base64,{pdf_base64}"
+                                    "filename": os.path.basename(word_path),
+                                    "file_data": f"data:application/word;base64,{word_base64}"
                                 }
                             }
                         ]
@@ -93,7 +101,7 @@ class OpenRouterClient:
                 "plugins": [
                     {
                         "id": "file-parser",
-                        "pdf": {"engine": "pdf-text"}
+                        "word": {"engine": "word-text"}
                     }
                 ]
             }

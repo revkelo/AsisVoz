@@ -25,7 +25,7 @@ class AsisVozApp(TkinterDnD.Tk):
         super().__init__()
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
-        self.pdf_path = None
+        self.word_path = None
         self.title("AsisVoz")
         self.geometry("1000x850")
         self.minsize(800, 600)  # Tamaño mínimo de ventana
@@ -174,9 +174,13 @@ class AsisVozApp(TkinterDnD.Tk):
         self.chat_area.grid_columnconfigure(0, weight=1, minsize=300)  # Asegurar ancho mínimo
         self.chat_row = 0
 
-        # Marco inferior con entrada de texto + botones de envío
-        frame_entry = ctk.CTkFrame(chat_frame, fg_color="transparent")
-        frame_entry.pack(padx=10, pady=(0, 15), fill="x")
+        # === Contenedor para entrada y archivo ===
+        frame_contenedor = ctk.CTkFrame(chat_frame, fg_color="transparent")
+        frame_contenedor.pack(padx=10, pady=(0, 10), fill="x")
+
+        # === Fila 1: Entrada de texto + botones ===
+        frame_entry = ctk.CTkFrame(frame_contenedor, fg_color="transparent")
+        frame_entry.pack(fill="x")
 
         # Campo de texto
         self.entry_message = ctk.CTkEntry(
@@ -185,23 +189,44 @@ class AsisVozApp(TkinterDnD.Tk):
             placeholder_text="Escribe un mensaje..."
         )
         self.entry_message.pack(side="left", fill="x", expand=True)
+        self.entry_message.bind("<Return>", lambda event: self._on_enviar_mensaje())
 
-        # Switch para activar o desactivar uso de PDF
-        self.use_pdf_switch = ctk.CTkSwitch(
+        # Botón para adjuntar archivo Word
+        self.btn_adjuntar_word = ctk.CTkButton(
             frame_entry,
-            text="Usar PDF",
-            command=self._on_switch_toggle
+            text="📎",
+            width=40,
+            height=32,
+            fg_color="transparent",
+            hover_color="#e0e0e0",
+            text_color="black",
+            command=self._on_select_word
         )
-        self.use_pdf_switch.pack(side="left", padx=(5, 10))
-        
-        # Botón de enviar unificado
+        self.btn_adjuntar_word.pack(side="left", padx=(5, 10))
+
+        # Tooltip
+        self.btn_adjuntar_word.bind("<Enter>", lambda e: self._mostrar_tooltip("Adjuntar archivo Word", e))
+        self.btn_adjuntar_word.bind("<Leave>", lambda e: self._ocultar_tooltip())
+
+        # Botón Enviar
         ctk.CTkButton(
             frame_entry,
             text="Enviar",
             width=60,
             height=32,
-            command=self._on_send_based_on_switch
+            command=self._on_enviar_mensaje
         ).pack(side="left")
+
+        # === Fila 2: Visualización del archivo adjunto ===
+        self.archivo_frame = ctk.CTkFrame(
+            frame_contenedor,       # OJO: diferente frame contenedor (vertical)
+            fg_color="#f5f5f5",
+            corner_radius=10,
+            height=30
+        )
+        self.archivo_frame.pack(fill="x", pady=(5, 0))
+        self.archivo_frame.pack_forget()  # Se oculta hasta que se adjunte algo
+
         
         self.historial_archivo = "historial.txt"
         self.historial_transcripciones = self._cargar_historial()
@@ -289,15 +314,133 @@ class AsisVozApp(TkinterDnD.Tk):
             self.after_cancel(self._gif_job)
 
 
+    def _mostrar_tooltip(self, texto, evento=None):
+        if hasattr(self, "tooltip_label") and self.tooltip_label:
+            self.tooltip_label.destroy()
+
+        # Obtener posición del botón
+        x = self.btn_adjuntar_word.winfo_rootx()
+        y = self.btn_adjuntar_word.winfo_rooty()
+
+        # Crear tooltip como un Toplevel sin borde
+        self.tooltip_label = tk.Toplevel(self)
+        self.tooltip_label.wm_overrideredirect(True)
+        self.tooltip_label.configure(bg="#333")
+
+        # Crear etiqueta dentro del tooltip
+        label = tk.Label(
+            self.tooltip_label,
+            text=texto,
+            bg="#333",
+            fg="white",
+            font=("Arial", 10),
+            padx=5,
+            pady=2
+        )
+        label.pack()
+
+        # Posicionar sobre el botón (ajusta -20 si quieres más separación)
+        self.tooltip_label.wm_geometry(f"+{x}+{y - 30}")
+
+    def _ocultar_tooltip(self):
+        if hasattr(self, "tooltip_label") and self.tooltip_label:
+            self.tooltip_label.destroy()
+            self.tooltip_label = None
+
+    def _on_enviar_mensaje(self):
+        mensaje = self.entry_message.get().strip()
+        if not mensaje:
+            messagebox.showwarning("Mensaje vacío", "Escribe un mensaje para enviar.")
+            return
+
+        # Si hay archivo adjunto, añadimos su nombre
+        mensaje_visual = mensaje
+        if hasattr(self, "word_path") and self.word_path:
+            nombre_archivo = os.path.basename(self.word_path)
+            mensaje_visual += f"\n[Archivo: {nombre_archivo}]"
+
+        # Mostrar mensaje del usuario
+        self._agregar_mensaje(mensaje_visual, remitente="usuario")
+
+        # Mostrar burbuja "cargando..."
+        _, label_bot = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
+
+        # Limpiar campo de entrada
+        self.entry_message.delete(0, "end")
+
+        for widget in self.archivo_frame.winfo_children():
+            widget.destroy()
+        self.archivo_frame.pack_forget()
+        self.word_path = None
+
+
+        def procesar_respuesta():
+            try:
+                if hasattr(self, "word_path") and self.word_path:
+                    respuesta, duracion = self.router_client.preguntar_con_word(self.word_path, mensaje)
+                else:
+                    respuesta, duracion = self.router_client.preguntar_texto(mensaje)
+
+                label_bot.configure(text=respuesta)
+
+            except Exception as e:
+                label_bot.configure(text="Error al obtener respuesta.")
+                messagebox.showerror("Error", str(e))
+
+        threading.Thread(target=procesar_respuesta, daemon=True).start()
+
+
+    def _mostrar_archivo_seleccionado(self, ruta_archivo):
+        ruta_normalizada = os.path.abspath(ruta_archivo)
+
+        print(f"🔽 Mostrando archivo: {repr(ruta_normalizada)}")
+
+        if ruta_normalizada not in self.selected_files:
+            self.selected_files.append(ruta_normalizada)
+            print(f"✅ Añadido a la lista: {repr(ruta_normalizada)}")
+        else:
+            print(f"🟡 Ya estaba en la lista.")
+
+        # Limpia el contenido del frame antes de agregar nuevo
+        for widget in self.archivo_frame.winfo_children():
+            widget.destroy()
+
+        # Nombre del archivo para mostrar
+        nombre_archivo = os.path.basename(ruta_normalizada)
+
+        # Etiqueta con el nombre del archivo
+        label = ctk.CTkLabel(self.archivo_frame, text=f"📄 {nombre_archivo}", anchor="w", text_color="#222")
+        label.pack(side="left", padx=10, pady=5, fill="x", expand=True)
+
+        # Botón para eliminar el archivo
+        boton = ctk.CTkButton(
+            self.archivo_frame,
+            text="❌",
+            width=25,
+            height=25,
+            fg_color="transparent",
+            hover_color="#eee",
+            text_color="red",
+            command=lambda ruta=ruta_normalizada: self._eliminar_archivito(ruta)
+        )
+        boton.pack(side="right", padx=10, pady=5)
+
+        # Muestra el frame (por si estaba oculto)
+        self.archivo_frame.pack(side="top", fill="x", pady=(0, 5))
+
+
+    def _eliminar_archivito(self, ruta):
+        if ruta in self.selected_files:
+            self.selected_files.remove(ruta)
+            print(f"🗑️ Archivo eliminado: {ruta}")
+        else:
+            print(f"⚠️ El archivo '{ruta}' no está en la lista.")
+
+        self.archivo_frame.pack_forget()
+        self.word_path = None
 
 
 
-        # Actualizar binding del <Return>
-        self.entry_message.bind("<Return>", lambda event: self._on_send_based_on_switch())
-
-        # Bind para actualizar el chat cuando se redimensiona la ventana
-        self.bind("<Configure>", self._on_window_resize)
-        self._inicializar_chat_responsive()
 
     def _limpiar_respuesta_openrouter(self, texto):
         """
@@ -432,20 +575,25 @@ class AsisVozApp(TkinterDnD.Tk):
         return f"🧾 Costo de la transcripción: {costo_usd:.2f} USD / ${costo_cop:,} COP"
 
 
-    def _on_select_pdf(self):
+    def _on_select_word(self):
         ruta = filedialog.askopenfilename(
-        title="Selecciona un archivo PDF",
-        filetypes=[("Archivos PDF", "*.pdf")]
-    )
+            title="Selecciona un archivo Word",
+            filetypes=[("Archivos Word", "*.docx")]
+        )
+
         if ruta:
-            self.pdf_path = ruta
-            messagebox.showinfo("Archivo cargado", f"PDF seleccionado:\n{os.path.basename(ruta)}")
+            ruta_abs = os.path.abspath(ruta)
+            self.word_path = ruta_abs
+            messagebox.showinfo("Archivo cargado", f"Word seleccionado:\n{os.path.basename(ruta_abs)}")
+            self._mostrar_archivo_seleccionado(ruta_abs)
+            self.selected_files.append(ruta_abs)
         else:
-            self.pdf_path = None
+            self.word_path = None
+
 
     def _on_switch_toggle(self):
-        if self.use_pdf_switch.get() == 0:
-            self.pdf_path = None  # limpiar si desactiva
+        if self.use_word_switch.get() == 0:
+            self.word_path = None  # limpiar si desactiva
 
 
     def _cargar_historial(self):
@@ -458,17 +606,17 @@ class AsisVozApp(TkinterDnD.Tk):
             lineas = [line.strip() for line in f.readlines() if line.strip()]
         return lineas[-20:]  # Solo las últimas 20
 
-    def _guardar_en_historial(self, ruta_pdf):
+    def _guardar_en_historial(self, ruta_word):
         """
         Guarda una nueva transcripción y actualiza el menú.
         """
         # Añadir al historial en memoria
-        self.historial_transcripciones.append(ruta_pdf)
+        self.historial_transcripciones.append(ruta_word)
         self.historial_transcripciones = self.historial_transcripciones[-20:]
 
         # Guardar todo en el archivo (manteniendo persistencia completa)
         with open(self.historial_archivo, "a", encoding="utf-8") as f:
-            f.write(ruta_pdf + "\n")
+            f.write(ruta_word + "\n")
 
         # Actualizar menú
         self._actualizar_menu_historial()
@@ -493,35 +641,35 @@ class AsisVozApp(TkinterDnD.Tk):
                 )
 
 
-    def _abrir_transcripcion_desde_historial(self, ruta_pdf):
-        if not os.path.exists(ruta_pdf):
-            messagebox.showerror("Error", f"No se encontró el archivo:\n{ruta_pdf}")
+    def _abrir_transcripcion_desde_historial(self, ruta_word):
+        if not os.path.exists(ruta_word):
+            messagebox.showerror("Error", f"No se encontró el archivo:\n{ruta_word}")
             return
 
         try:
             sistema = platform.system()
             if sistema == "Windows":
-                os.startfile(ruta_pdf)
+                os.startfile(ruta_word)
             elif sistema == "Darwin":
-                subprocess.call(["open", ruta_pdf])
+                subprocess.call(["open", ruta_word])
             else:
-                subprocess.call(["xdg-open", ruta_pdf])
+                subprocess.call(["xdg-open", ruta_word])
         except Exception as e:
-            messagebox.showerror("Error al abrir archivo", f"No se pudo abrir:\n{ruta_pdf}\n\n{e}")
+            messagebox.showerror("Error al abrir archivo", f"No se pudo abrir:\n{ruta_word}\n\n{e}")
 
 
     def _on_send_based_on_switch(self):
-        if self.use_pdf_switch.get() == 1:
+        if self.use_word_switch.get() == 1:
             ruta = filedialog.askopenfilename(
-                title="Selecciona un archivo PDF",
-                filetypes=[("Archivos PDF", "*.pdf")]
+                title="Selecciona un archivo Word",
+                filetypes=[("Archivos Word", "*.docx")]
             )
             if not ruta:
-                messagebox.showwarning("PDF no seleccionado", "No se seleccionó ningún archivo.")
+                messagebox.showwarning("Word no seleccionado", "No se seleccionó ningún archivo.")
                 return
 
-            self.pdf_path = ruta
-            self._on_send_with_pdf()
+            self.word_path = ruta
+            self._on_send_with_word()
         else:
             self._on_send_message()
 
@@ -567,7 +715,7 @@ class AsisVozApp(TkinterDnD.Tk):
         self.selected_files = [archivo_valido]  # Solo uno
         self._actualizar_lista_archivos()
         nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
-        self.nombre_pdf = f"{nombre_base}.docx"
+        self.nombre_word = f"{nombre_base}.docx"
         self._agregar_mensaje("✔ Archivo cargado correctamente")
 
 
@@ -590,7 +738,7 @@ class AsisVozApp(TkinterDnD.Tk):
         self._actualizar_lista_archivos()
 
         nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
-        self.nombre_pdf = f"{nombre_base}.docx"
+        self.nombre_word = f"{nombre_base}.docx"
 
         print("Archivo seleccionado:", self.selected_files[0])
         self._agregar_mensaje("✔ Archivo cargado correctamente")
@@ -620,9 +768,23 @@ class AsisVozApp(TkinterDnD.Tk):
             ).pack(side="right", padx=5)
 
     def _eliminar_archivo(self, ruta):
-      
-        self.selected_files.remove(ruta)
-        self._actualizar_lista_archivos()
+        respuesta = messagebox.askyesno(
+            "Confirmar eliminación",
+            "¿Estás seguro de eliminar el audio? Se eliminará la transcripción generada."
+        )
+
+        if respuesta:  # Solo procede si el usuario hace clic en "Sí"
+            if ruta in self.selected_files:
+                self.selected_files.remove(ruta)
+
+            self._actualizar_lista_archivos()
+
+            # Oculta el botón si ya no hay archivos
+            if not self.selected_files:
+                if hasattr(self, "btn_abrir_transcripcion") and self.btn_abrir_transcripcion:
+                    self.btn_abrir_transcripcion.pack_forget()
+
+
 
     def centrar_ventana(self):
         self.update_idletasks()  # Asegura que geometry() tenga valores actualizados
@@ -641,7 +803,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Solicitar al usuario una carpeta para guardar el PDF
         carpeta_destino = filedialog.askdirectory(
-            title="Selecciona una carpeta para guardar el PDF"
+            title="Selecciona una carpeta para guardar el Word"
         )
 
         if not carpeta_destino:
@@ -652,7 +814,7 @@ class AsisVozApp(TkinterDnD.Tk):
         nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
 
         nombre_base = (nombre_base[:70] + '...') if len(nombre_base) > 50 else nombre_base
-        self.nombre_pdf = os.path.join(carpeta_destino, f"{nombre_base}.docx")
+        self.nombre_word = os.path.join(carpeta_destino, f"{nombre_base}.docx")
         self.btn_transcribir.configure(text="Transcribir", state="enable")
             
         
@@ -663,8 +825,8 @@ class AsisVozApp(TkinterDnD.Tk):
                 self.after(0, self._mostrar_gif_cargando)
                 self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
 
-                self.transcriptor.transcribir_audio(ruta, self.nombre_pdf)
-                self._agregar_mensaje(f"🎧 Transcribiendo: {os.path.basename(ruta)}", remitente="bot")
+                self.transcriptor.transcribir_audio(ruta, self.nombre_word)
+                #self._agregar_mensaje(f"🎧 Transcribiendo: {os.path.basename(ruta)}", remitente="bot")
                 self.after(0, self._transcripcion_exitosa)
             except Exception as e:
                 messagebox.showerror("Error", str(e))
@@ -677,7 +839,7 @@ class AsisVozApp(TkinterDnD.Tk):
     def _transcripcion_exitosa(self):
    
         # Guardar en historial
-        self._guardar_en_historial(self.nombre_pdf)
+        self._guardar_en_historial(self.nombre_word)
 
         # Calcular el costo
         costo = self.calcular_costo_transcripcion()
@@ -687,7 +849,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Mensaje en el chat
         self._agregar_mensaje(
-        f"✔ Transcripción completada {self.nombre_pdf} ",
+        f"✔ Transcripción completada {self.nombre_word} ",
         remitente="bot"
         )
 
@@ -702,26 +864,26 @@ class AsisVozApp(TkinterDnD.Tk):
 
 
     def _on_open_transcripcion(self):
-        if not hasattr(self, "nombre_pdf"):
+        if not hasattr(self, "nombre_word"):
             messagebox.showerror("Error", "No se ha generado ningún Word.")
             return
         
 
-        ruta_pdf = self.nombre_pdf
+        ruta_word = self.nombre_word
 
-        if not os.path.exists(ruta_pdf):
-            messagebox.showerror("Archivo no encontrado", f"No se encontró el archivo {ruta_pdf}.")
+        if not os.path.exists(ruta_word):
+            messagebox.showerror("Archivo no encontrado", f"No se encontró el archivo {ruta_word}.")
             return
 
 
         sistema = platform.system()
 
         if sistema == "Windows":
-            os.startfile(ruta_pdf)
+            os.startfile(ruta_word)
         elif sistema == "Darwin":
-            subprocess.call(["open", ruta_pdf])
+            subprocess.call(["open", ruta_word])
         else:
-            subprocess.call(["xdg-open", ruta_pdf])
+            subprocess.call(["xdg-open", ruta_word])
             
     def _on_send_message(self):
         """
@@ -754,7 +916,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
         self.after(0, self._update_chat_with_response, respuesta_texto)
 
-    def _on_send_with_pdf(self):
+    def _on_send_with_word(self):
         """
         Envía el contenido de la caja de texto junto a un PDF previamente seleccionado.
         """
@@ -762,32 +924,32 @@ class AsisVozApp(TkinterDnD.Tk):
         if prompt == "":
             return
 
-        pdf_path = self.pdf_path  # Usar el PDF previamente seleccionado con el botón 📎
+        word_path = self.word_path  # Usar el PDF previamente seleccionado con el botón 📎
 
-        if not pdf_path:
-            messagebox.showwarning("PDF no seleccionado", "Por favor selecciona un archivo con el botón 📎.")
+        if not word_path:
+            messagebox.showwarning("Word no seleccionado", "Por favor selecciona un archivo con el botón 📎.")
             return
 
-        texto_usuario = f"{prompt}\n(Consulta con PDF: {os.path.basename(pdf_path)})"
+        texto_usuario = f"{prompt}\n(Consulta con Word: {os.path.basename(word_path)})"
         self._agregar_mensaje(texto_usuario, remitente="usuario")
         self.entry_message.delete(0, "end")
 
-        hilo = threading.Thread(target=self._worker_llm_pdf, args=(pdf_path, prompt))
+        hilo = threading.Thread(target=self._worker_llm_word, args=(word_path, prompt))
         hilo.daemon = True
         self._mensaje_cargando_id = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
         hilo.start()
 
-    def _worker_llm_pdf(self, pdf_path: str, prompt: str):
+    def _worker_llm_word(self, word_path: str, prompt: str):
         """
-        Este método se ejecuta en un hilo aparte. Llama a preguntar_con_pdf
+        Este método se ejecuta en un hilo aparte. Llama a preguntar_con_word
         y luego regresa al hilo principal para mostrar la respuesta.
         """
         try:
-            respuesta_texto, _ = self.router_client.preguntar_con_pdf(pdf_path, prompt)
+            respuesta_texto, _ = self.router_client.preguntar_con_word(word_path, prompt)
             # Limpiar la respuesta eliminando los "###"
             respuesta_texto = self._limpiar_respuesta_openrouter(respuesta_texto)
         except Exception as e:
-            respuesta_texto = f"Error al procesar PDF con OpenRouter:\n{e}"
+            respuesta_texto = f"Error al procesar Word con OpenRouter:\n{e}"
 
         self.after(0, self._update_chat_with_response, respuesta_texto)
 
@@ -866,7 +1028,8 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Forzamos el scroll al fondo
         self.after(50, lambda: self.chat_area._parent_canvas.yview_moveto(1.0))
-        return frame_burbuja
+        return frame_burbuja, label
+    
     # Método adicional para recalcular wraplength cuando el chat se inicializa
     def _inicializar_chat_responsive(self):
         """Método para llamar después de que la ventana esté completamente inicializada"""
