@@ -139,7 +139,7 @@ class DeepgramPDFTranscriber:
         archivo_parrafo.runs[0].font.size = Pt(10)
 
         fecha_formateada = self.obtener_fecha_creacion(ruta_audio)
-        fecha_parrafo = doc.add_paragraph(f"Fecha de creación: {fecha_formateada}")
+        fecha_parrafo = doc.add_paragraph(f"{fecha_formateada}")
         fecha_parrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
         fecha_parrafo.runs[0].font.size = Pt(10)
 

@@ -848,6 +848,7 @@ class AsisVozApp(TkinterDnD.Tk):
         if ruta.lower().endswith('.mp4'):
             try:
                 nombre_base = os.path.splitext(os.path.basename(ruta))[0]
+                self.agregar_mensaje("Archivo .mp4 convertirtiendo a .mp3")
                 tmp_dir = tempfile.gettempdir()
                 ruta_convertida = os.path.join(tmp_dir, f"{nombre_base}.mp3")
 
