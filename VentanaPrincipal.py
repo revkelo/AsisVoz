@@ -1,5 +1,6 @@
 import os
 import threading
+import time
 import customtkinter as ctk
 import requests
 from DeepGramClient import DeepgramPDFTranscriber
@@ -20,6 +21,7 @@ import math
 
 balance_actual= None
 balance_anterior = None
+
 
 def obtener_area_trabajo():
     """Devuelve el área de trabajo sin incluir la barra de tareas (en Windows)"""
@@ -74,7 +76,8 @@ def aplicar_pantalla_completa_sin_barra(ventana):
 
 class AsisVozApp(TkinterDnD.Tk):
     def __init__(self,openrouter_key, deepgram_key):
-        
+        self.mensajes_widgets = {}  # ← aquí guardaremos los mensajes por ID
+        self.contador_mensajes = 0  # ← para generar IDs únicos
         super().__init__()
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
@@ -401,6 +404,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
     def _on_enviar_mensaje(self):
         mensaje = self.entry_message.get("1.0", "end").strip()
+
         if not mensaje:
             messagebox.showwarning("Mensaje vacío", "Escribe un mensaje para enviar.")
             return
@@ -415,34 +419,70 @@ class AsisVozApp(TkinterDnD.Tk):
         self.agregar_mensaje(mensaje_visual, remitente="usuario")
 
         # Mostrar burbuja "cargando..."
-        _, label_bot = self.agregar_mensaje("Cargando respuesta...", remitente="bot")
+        mensaje_id, label_bot = self.agregar_mensaje("Cargando respuesta", remitente="bot")
 
-        # Guarda copia del path del archivo ANTES de borrarlo
         ruta_word_local = self.word_path if hasattr(self, "word_path") else None
 
         # Limpia UI
+        mensaje = self.entry_message.get("1.0", "end").strip()
         self.entry_message.delete("1.0", "end")
+
         for widget in self.archivo_frame.winfo_children():
             widget.destroy()
         self.archivo_frame.pack_forget()
         self.word_path = None
 
-        # Ejecuta hilo de procesamiento
+        # --- Animación del "Cargando..." ---
+        cargando_activo = True
+
+        def animar_cargando():
+            puntos = ["", ".", "..", "..."]
+            idx = 0
+            while cargando_activo:
+                nuevo_texto = f"Cargando respuesta{puntos[idx % len(puntos)]}"
+                self.after(0, lambda t=nuevo_texto: label_bot.configure(text=t))
+                idx += 1
+                time.sleep(0.5)
+
+        hilo_anim = threading.Thread(target=animar_cargando, daemon=True)
+        hilo_anim.start()
+
+        # --- Procesar respuesta real ---
         def procesar_respuesta():
+            nonlocal cargando_activo
             try:
                 if ruta_word_local:
                     respuesta, duracion = self.router_client.preguntar_con_word(ruta_word_local, mensaje)
                 else:
                     respuesta, duracion = self.router_client.preguntar_texto(mensaje)
 
-                label_bot.configure(text=respuesta)
+                cargando_activo = False
+                self.after(0, lambda: label_bot.configure(text=respuesta))
 
             except Exception as e:
-                label_bot.configure(text="Error al obtener respuesta.")
+                cargando_activo = False
+                self.after(0, lambda: label_bot.configure(text="Error al obtener respuesta."))
                 messagebox.showerror("Error", str(e))
 
         threading.Thread(target=procesar_respuesta, daemon=True).start()
 
+ 
+
+    def actualizar_mensaje(self, label, nuevo_texto):
+        """
+        Actualiza el texto de una burbuja de chat existente.
+        - label: referencia al CTkLabel devuelto por agregar_mensaje
+        - nuevo_texto: texto que reemplazará al actual
+        """
+        if label and isinstance(label, ctk.CTkLabel):
+            label.configure(text=nuevo_texto)
+            label.update_idletasks()
+            
+            # 🔹 Opcional: mover scroll al final
+            self.chat_area.update_idletasks()
+            self.chat_area.yview_moveto(1)
+        else:
+            print("⚠️ No se pudo actualizar el mensaje: label inválido")
 
 
     def _mostrar_archivo_seleccionado(self, ruta_archivo):
@@ -974,17 +1014,45 @@ class AsisVozApp(TkinterDnD.Tk):
         Envía el contenido de la caja de texto como "solo texto" (sin PDF).
         """
         texto = self.entry_message.get("1.0", "end").strip()
-
         if texto == "":
             return
 
-        self.entry_message.delete(0, "end")
+        self.entry_message.delete("1.0", "end")
         self.agregar_mensaje(texto, remitente="usuario")
+
+        # Mensaje inicial "Cargando..."
+        _, label_cargando = self.agregar_mensaje("Cargando", remitente="bot")
+        self._mensaje_cargando_label = label_cargando
+        self._cargando_activo = True
+        self._cargando_estado = 0
+        self._animar_cargando()  # Inicia la animación
 
         hilo = threading.Thread(target=self._worker_llm, args=(texto,))
         hilo.daemon = True
-        self._mensaje_cargando_id = self.agregar_mensaje("Cargando respuesta...", remitente="bot")
         hilo.start()
+
+    def _animar_cargando(self):
+        """
+        Actualiza el texto del label de cargando en bucle hasta que se detenga.
+        """
+        if not getattr(self, "_cargando_activo", False):
+            return
+
+        puntos = "." * (self._cargando_estado + 1)
+        self._mensaje_cargando_label.configure(text=f"Cargando{puntos}")
+        self._cargando_estado = (self._cargando_estado + 1) % 3  # 0 → 1 → 2 → 0
+
+        # Repetir cada 500 ms
+        self.after(100, self._animar_cargando)
+
+    def _finalizar_cargando(self, texto_respuesta):
+        """
+        Detiene la animación y coloca el texto final.
+        """
+        self._cargando_activo = False
+        if self._mensaje_cargando_label.winfo_exists():
+            self._mensaje_cargando_label.configure(text=texto_respuesta)
+
 
     def _worker_llm(self, prompt: str):
         """
@@ -1003,28 +1071,36 @@ class AsisVozApp(TkinterDnD.Tk):
 
     def _on_send_with_word(self):
         """
-        Envía el contenido de la caja de texto junto a un PDF previamente seleccionado.
+        Envía el contenido de la caja de texto junto a un Word previamente seleccionado.
         """
         prompt = self.entry_message.get().strip()
         if prompt == "":
             return
 
-        word_path = self.word_path  # Usar el PDF previamente seleccionado con el botón 📎
-
+        word_path = self.word_path  # Usar el Word previamente seleccionado con el botón 📎
         if not word_path:
             messagebox.showwarning("Word no seleccionado", "Por favor selecciona un archivo con el botón 📎.")
             return
 
-
+        # Mostrar mensaje del usuario
         texto_usuario = f"{prompt}\n(Consulta con Word: {os.path.basename(word_path)})"
         self.agregar_mensaje(texto_usuario, remitente="usuario")
 
+        # Limpiar entrada
         self.entry_message.delete(0, "end")
 
+        # Mensaje inicial "Cargando..."
+        _, label_cargando = self.agregar_mensaje("Cargando", remitente="bot")
+        self._mensaje_cargando_label = label_cargando
+        self._cargando_activo = True
+        self._cargando_estado = 0
+        self._animar_cargando()  # Inicia la animación
+
+        # Hilo para el procesamiento
         hilo = threading.Thread(target=self._worker_llm_word, args=(word_path, prompt))
         hilo.daemon = True
-        self._mensaje_cargando_id = self.agregar_mensaje("Cargando respuesta...", remitente="bot")
         hilo.start()
+
 
     def _worker_llm_word(self, word_path: str, prompt: str):
         """
@@ -1058,6 +1134,7 @@ class AsisVozApp(TkinterDnD.Tk):
         - Si remitente="bot", se alinea a la izquierda con fondo gris claro.
         Luego fuerza el scroll para que siempre se vea el último mensaje.
         """
+        print(f"Agregando mensaje: {texto} (remitente: {remitente})")
         bubble_fg = "#d9eaff" if remitente == "usuario" else "#f1f1f1"
         
         # Obtener el ancho actual del chat_area con múltiples intentos
