@@ -36,7 +36,7 @@ class OpenRouterClient:
     def _manejar_error_429(self):
         """Activa el modo fallback cuando recibimos error 429"""
         if not self.usando_fallback:
-            print(f"⚠️  Error 429 detectado. Cambiando a modelo fallback ({self.modelo_fallback}) por {self.max_peticiones_fallback} peticiones...")
+            print("Cambiando modelo")
             self.usando_fallback = True
             self.contador_fallback = 0
             return True
@@ -48,10 +48,8 @@ class OpenRouterClient:
         """Incrementa el contador de peticiones en modo fallback"""
         if self.usando_fallback:
             self.contador_fallback += 1
-            print(f"📊 Usando modelo fallback: {self.contador_fallback}/{self.max_peticiones_fallback}")
             
-            if self.contador_fallback >= self.max_peticiones_fallback:
-                print(f"✅ Completadas {self.max_peticiones_fallback} peticiones con modelo fallback. Volviendo al modelo principal ({self.modelo_principal})...")
+
 
     def preguntar_con_word(self, word_path: str, pregunta: str) -> tuple[str, float]:
         """
@@ -119,7 +117,7 @@ class OpenRouterClient:
             if respuesta.status_code == 429:
                 # Si es el primer intento, activamos fallback
                 if intento == 0 and self._manejar_error_429():
-                    print("🔄 Reintentando con modelo fallback...")
+                    
                     continue
                 else:
                     # Si ya estamos en fallback o es el segundo intento, lanzamos error
@@ -173,7 +171,7 @@ class OpenRouterClient:
             if respuesta.status_code == 429:
                 # Si es el primer intento, activamos fallback
                 if intento == 0 and self._manejar_error_429():
-                    print("🔄 Reintentando con modelo fallback...")
+                    
                     continue
                 else:
                     # Si ya estamos en fallback o es el segundo intento, lanzamos error
@@ -227,4 +225,4 @@ class OpenRouterClient:
         """Resetea manualmente el estado del fallback"""
         self.usando_fallback = False
         self.contador_fallback = 0
-        print("🔄 Estado de fallback reseteado manualmente.")
+        

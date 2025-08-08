@@ -66,13 +66,6 @@ def aplicar_pantalla_completa_sin_barra(ventana):
     offset_y = 0   # Sin offset vertical necesario para la parte superior
     ventana.resizable(False, False)  # Permitir redimensionar
     ventana.geometry(f"{ancho_visible}x{alto_visible-50}+{left + offset_x}+{top + offset_y}")
-    print(f"{ancho_visible}x{alto_visible}+{left + offset_x}+{top + offset_y}")
-    
-    print(f"Resolución lógica: {res_logica}")
-    print(f"Resolución física: {res_fisica}")
-    print(f"Escala: {escala_x}% x, {escala_y}% y")
-    print(f"Área visible sin barra: {ancho_visible}x{alto_visible}")
-    print(f"Posición corregida: x={left + offset_x}, y={top + offset_y}")
 
 class AsisVozApp(TkinterDnD.Tk):
     def __init__(self,openrouter_key, deepgram_key):
@@ -488,13 +481,13 @@ class AsisVozApp(TkinterDnD.Tk):
     def _mostrar_archivo_seleccionado(self, ruta_archivo):
         ruta_normalizada = os.path.abspath(ruta_archivo)
 
-        print(f"🔽 Mostrando archivo: {repr(ruta_normalizada)}")
+
 
         if ruta_normalizada not in self.selected_files:
             self.selected_files.append(ruta_normalizada)
-            print(f"✅ Añadido a la lista: {repr(ruta_normalizada)}")
+            print(f"Añadido a la lista: {repr(ruta_normalizada)}")
         else:
-            print(f"🟡 Ya estaba en la lista.")
+            print(f"Ya estaba en la lista.")
 
         # Limpia el contenido del frame antes de agregar nuevo
         for widget in self.archivo_frame.winfo_children():
@@ -528,9 +521,9 @@ class AsisVozApp(TkinterDnD.Tk):
     def _eliminar_archivito(self, ruta):
         if ruta in self.selected_files:
             self.selected_files.remove(ruta)
-            print(f"🗑️ Archivo eliminado: {ruta}")
+            print(f"Archivo eliminado: {ruta}")
         else:
-            print(f"⚠️ El archivo '{ruta}' no está en la lista.")
+            print(f"El archivo '{ruta}' no está en la lista.")
 
         if hasattr(self, "word_path") and self.word_path == ruta:
             self.word_path = None
@@ -693,7 +686,7 @@ class AsisVozApp(TkinterDnD.Tk):
             self._mostrar_archivo_seleccionado(ruta_abs)
             messagebox.showinfo("Archivo cargado", f"Word seleccionado:\n{os.path.basename(ruta_abs)}")
             self.selected_files.append(ruta_abs)
-            print( f"🔽 Archivo Word seleccionado: {ruta_abs}")
+
             
         else:
             self.word_path = None
@@ -734,7 +727,7 @@ class AsisVozApp(TkinterDnD.Tk):
         Refresca el menú "Historial" con las últimas transcripciones.
         """
         if not hasattr(self, 'historial_menu'):
-            print("⚠️ historial_menu no está definido aún.")
+
             return
 
         self.historial_menu.delete(0, tk.END)
@@ -857,7 +850,7 @@ class AsisVozApp(TkinterDnD.Tk):
         nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
         self.nombre_word = f"{nombre_base}.docx"
 
-        print("Archivo seleccionado:", self.selected_files[0])
+
         self.agregar_mensaje("✔ Archivo cargado correctamente")
             # Mostrar el botón solo si no está visible
 
@@ -988,6 +981,7 @@ class AsisVozApp(TkinterDnD.Tk):
         remitente="bot"
         )
 
+        utils.reproducir_sonido("inicio")
         # Botón para abrir PDF
         self.btn_abrir_transcripcion.pack(pady=(5, 0))
 
@@ -1145,7 +1139,7 @@ class AsisVozApp(TkinterDnD.Tk):
         - Si remitente="bot", se alinea a la izquierda con fondo gris claro.
         Luego fuerza el scroll para que siempre se vea el último mensaje.
         """
-        print(f"Agregando mensaje: {texto} (remitente: {remitente})")
+
         bubble_fg = "#d9eaff" if remitente == "usuario" else "#f1f1f1"
         
         # Obtener el ancho actual del chat_area con múltiples intentos
@@ -1231,6 +1225,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Forzamos el scroll al fondo
         self.after(50, lambda: self.chat_area._parent_canvas.yview_moveto(1.0))
+        utils.reproducir_sonido("inicio")
         return frame_burbuja, label
     
     # Método adicional para recalcular wraplength cuando el chat se inicializa

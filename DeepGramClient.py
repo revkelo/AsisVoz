@@ -11,7 +11,6 @@ class DeepgramPDFTranscriber:
     def __init__(self, api_key: str):
         if not api_key:
             raise ValueError("API key de Deepgram requerida.")
-        print("[Inicializando] Cliente Deepgram...")
         self.client = DeepgramClient(api_key)
 
     def segundos_a_hhmmss(self, segundos: float) -> str:
@@ -38,7 +37,7 @@ class DeepgramPDFTranscriber:
             nombre_salida += ".pdf"
 
         pdf.output(nombre_salida)
-        print(f"\n✅ PDF guardado como '{nombre_salida}'")
+
 
     def transcribir_audio(self, ruta_audio, nombre_salida):
         inicio = time.time()
@@ -72,7 +71,7 @@ class DeepgramPDFTranscriber:
             )
 
             duracion_total = response.metadata.duration  # Duración total en segundos
-            print(f"⏳ Duración total: {duracion_total/60:.2f} minutos")
+
 
             # Definir tamaño de bloque según duración
             if duracion_total <= 20 * 60:
@@ -114,7 +113,7 @@ class DeepgramPDFTranscriber:
             self.generar_word(nombre_salida, transcripciones, ruta_audio)
 
             fin = time.time()
-            print(f"\n⏱ Tiempo de ejecución: {fin - inicio:.2f} segundos")
+
 
         except Exception as e:
             print(f"❌ Exception: {e}")
@@ -155,4 +154,4 @@ class DeepgramPDFTranscriber:
             nombre_salida += ".docx"
 
         doc.save(nombre_salida)
-        print(f"\n✅ Word guardado como '{nombre_salida}'")
+
