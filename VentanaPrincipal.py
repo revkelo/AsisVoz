@@ -598,7 +598,7 @@ class AsisVozApp(TkinterDnD.Tk):
                 self.balance_actual = amount
 
                 amount_cop = round(amount * tasa_dolar_a_cop)
-                return f"💰 {amount:.2f} {units.upper()} / ${amount_cop:,} COP"
+                return f"${amount:.2f} {units.upper()} / ${amount_cop:,} COP"
             else:
                 return "❗ No se encontró ningún balance disponible."
 
