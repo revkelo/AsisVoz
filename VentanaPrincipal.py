@@ -1109,19 +1109,26 @@ class AsisVozApp(TkinterDnD.Tk):
     
         # ✅ BOTÓN COPIAR justo debajo de la burbuja
         btn_copiar = ctk.CTkButton(
-        frame_burbuja,
-        text="Copiar",
-        width=50,
-        height=24,
-        fg_color="#e0e0e0",
-        text_color="black",
-        font=ctk.CTkFont(size=11),
-        hover_color="#d0d0d0",
-        corner_radius=8,
-        command=lambda: (self.clipboard_clear(), self.clipboard_append(label.cget("text")))
-
+            frame_burbuja,
+            text="Copiar",
+            width=50,
+            height=24,
+            fg_color="#e0e0e0",
+            text_color="black",
+            font=ctk.CTkFont(size=11),
+            hover_color="#d0d0d0",
+            corner_radius=8,
         )
+
+        def copiar_texto():
+            self.clipboard_clear()
+            self.clipboard_append(label.cget("text"))
+            btn_copiar.configure(text="¡Copiado!")
+            self.after(3000, lambda: btn_copiar.configure(text="Copiar"))
+
+        btn_copiar.configure(command=copiar_texto)
         btn_copiar.pack(padx=10, pady=(0, 8), anchor="e")
+
 
 
         # Colocamos la burbuja en la columna correspondiente
