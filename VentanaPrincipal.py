@@ -16,6 +16,7 @@ from PIL import Image, ImageTk
 import ctypes
 from ctypes import wintypes
 import utils
+import math
 
 balance_actual= None
 balance_anterior = None
@@ -161,7 +162,7 @@ class AsisVozApp(TkinterDnD.Tk):
             height=35,
             command=self._on_open_transcripcion
         )
-        self.btn_abrir_transcripcion.pack(pady=(5, 0), fill="x")
+        self.btn_abrir_transcripcion.pack(side="bottom", anchor="w", pady=(0, 5), padx=5)
         self.btn_abrir_transcripcion.pack_forget()
 
         # ─── RIGHT (Chatbot) ────────────────────────────────────────────────
@@ -239,14 +240,16 @@ class AsisVozApp(TkinterDnD.Tk):
         frame_entry = ctk.CTkFrame(frame_contenedor, fg_color="transparent")
         frame_entry.pack(fill="x")
 
-        # Campo de texto
-        self.entry_message = ctk.CTkEntry(
+        self.entry_message = ctk.CTkTextbox(
             frame_entry,
-            text_color="black",
-            placeholder_text="Escribe un mensaje..."
+            height=30,
+            text_color="black"
         )
         self.entry_message.pack(side="left", fill="x", expand=True)
+
+        # Capturar Enter para enviar
         self.entry_message.bind("<Return>", lambda event: self._on_enviar_mensaje())
+
 
         # Botón para adjuntar archivo Word
         self.btn_adjuntar_word = ctk.CTkButton(
@@ -310,7 +313,7 @@ class AsisVozApp(TkinterDnD.Tk):
         imagen = Image.open(self.gif_path)
         try:
             while True:
-                frame = imagen.copy().convert("RGBA").resize((200, 200), Image.LANCZOS)
+                frame = imagen.copy().convert("RGBA").resize((100, 100), Image.LANCZOS)
                 frame_tk = ImageTk.PhotoImage(frame)
                 self.gif_frames.append(frame_tk)
                 imagen.seek(len(self.gif_frames))  # Siguiente frame
@@ -334,7 +337,7 @@ class AsisVozApp(TkinterDnD.Tk):
         imagen = Image.open("media/cargando.gif")
         try:
             while True:
-                frame = imagen.copy().convert("RGBA").resize((180, 180), Image.LANCZOS)
+                frame = imagen.copy().convert("RGBA").resize((150, 150), Image.LANCZOS)
                 self.gif_frames.append(ImageTk.PhotoImage(frame))
                 imagen.seek(len(self.gif_frames))
         except EOFError:
@@ -343,15 +346,7 @@ class AsisVozApp(TkinterDnD.Tk):
         if not hasattr(self, 'gif_label'):
             self.gif_label = ctk.CTkLabel(self, text="")
         
-        self.gif_label.place(relx=0.0, rely=1.0, x=50, y=-120, anchor="sw")
-
-        self._gif_frame_index = 0
-        self._reproducir_gif()
-
-
-        if not hasattr(self, 'gif_label'):
-            self.gif_label = ctk.CTkLabel(self, text="")
-            self.gif_label.place(relx=0.0, rely=1.0, x=50, y=-120, anchor="sw")
+        self.gif_label.place(relx=0.05, rely=0.9, x=15, anchor="sw")
 
         self._gif_frame_index = 0
         self._reproducir_gif()
@@ -405,7 +400,7 @@ class AsisVozApp(TkinterDnD.Tk):
             self.tooltip_label = None
 
     def _on_enviar_mensaje(self):
-        mensaje = self.entry_message.get().strip()
+        mensaje = self.entry_message.get("1.0", "end").strip()
         if not mensaje:
             messagebox.showwarning("Mensaje vacío", "Escribe un mensaje para enviar.")
             return
@@ -426,7 +421,7 @@ class AsisVozApp(TkinterDnD.Tk):
         ruta_word_local = self.word_path if hasattr(self, "word_path") else None
 
         # Limpia UI
-        self.entry_message.delete(0, "end")
+        self.entry_message.delete("1.0", "end")
         for widget in self.archivo_frame.winfo_children():
             widget.destroy()
         self.archivo_frame.pack_forget()
@@ -638,7 +633,10 @@ class AsisVozApp(TkinterDnD.Tk):
 
         if costo_usd < 0:
             return "Error: el costo calculado es negativo. Verifica el flujo de llamadas."
-
+        messagebox.showinfo(
+            "Costo de la transcripción",
+            f"El costo de esta transcripción fue de: {costo_usd:.2f} USD / ${costo_cop:,} COP"
+    )
         return f"🧾 Costo de la transcripción: {costo_usd:.2f} USD / ${costo_cop:,} COP"
 
 
@@ -975,7 +973,8 @@ class AsisVozApp(TkinterDnD.Tk):
         """
         Envía el contenido de la caja de texto como "solo texto" (sin PDF).
         """
-        texto = self.entry_message.get().strip()
+        texto = self.entry_message.get("1.0", "end").strip()
+
         if texto == "":
             return
 
@@ -1072,7 +1071,8 @@ class AsisVozApp(TkinterDnD.Tk):
             chat_width = max(300, window_width - 450)
         
         # Calcular wraplength dinámicamente con margen más conservador
-        wraplength = max(200, chat_width - 150)
+        max_bubble_width = 750  # Límite estético máximo
+        wraplength = min(max_bubble_width, max(200, chat_width - 150))
 
         # Frame contenedor para cada mensaje
         container_frame = ctk.CTkFrame(self.chat_area, fg_color="transparent")
@@ -1092,17 +1092,44 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Creamos la burbuja sin ancho fijo
         frame_burbuja = ctk.CTkFrame(container_frame, fg_color=bubble_fg, corner_radius=10)
+        frame_burbuja.grid_propagate(True)
+        frame_burbuja.configure(width=wraplength + 30)  # Ajusta según tu padding
 
         # Etiqueta interna con wraplength dinámico y más padding
         label = ctk.CTkLabel(
             frame_burbuja,
             text=texto,
+            font=ctk.CTkFont(size=12),
             wraplength=wraplength,
             justify="left",
-            font=ctk.CTkFont(size=12),
-            anchor="w"  # Alineación a la izquierda dentro del label
+            anchor="w"
+
         )
-        label.pack(padx=15, pady=10, fill="both", expand=True)  # Más padding
+        label.pack(padx=15, pady=10, fill="both", expand=True)
+    
+        # ✅ BOTÓN COPIAR justo debajo de la burbuja
+        btn_copiar = ctk.CTkButton(
+            frame_burbuja,
+            text="Copiar",
+            width=50,
+            height=24,
+            fg_color="#e0e0e0",
+            text_color="black",
+            font=ctk.CTkFont(size=11),
+            hover_color="#d0d0d0",
+            corner_radius=8,
+        )
+
+        def copiar_texto():
+            self.clipboard_clear()
+            self.clipboard_append(label.cget("text"))
+            btn_copiar.configure(text="¡Copiado!")
+            self.after(3000, lambda: btn_copiar.configure(text="Copiar"))
+
+        btn_copiar.configure(command=copiar_texto)
+        btn_copiar.pack(padx=10, pady=(0, 8), anchor="e")
+
+
 
         # Colocamos la burbuja en la columna correspondiente
         frame_burbuja.grid(
