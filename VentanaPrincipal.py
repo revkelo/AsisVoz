@@ -844,6 +844,7 @@ class AsisVozApp(TkinterDnD.Tk):
         if ruta_lower.endswith('.mp4'):
             try:
                 nombre_base = os.path.splitext(os.path.basename(ruta))[0]
+                self.agregar_mensaje("Archivo .mp4 convertirtiendo a .mp3")
                 tmp_dir = tempfile.gettempdir()
                 ruta_convertida = os.path.join(tmp_dir, f"{nombre_base}.mp3")
 
@@ -853,8 +854,8 @@ class AsisVozApp(TkinterDnD.Tk):
                 clip.close()
 
                 self.selected_files = [ruta_convertida]
-                self.agregar_mensaje("🔁 Archivo .mp4 convertido a .mp3 correctamente")
-
+                
+                self.agregar_mensaje("Archivo convertido a .mp3 correctamente")
                 print("Archivo mp4 convertido a mp3:", ruta_convertida)
 
             except Exception as e:
