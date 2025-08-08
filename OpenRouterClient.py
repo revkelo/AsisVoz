@@ -41,9 +41,7 @@ class OpenRouterClient:
             self.contador_fallback = 0
             return True
         else:
-            # Ya estamos en fallback y sigue dando 429
-            print("Manda un mensaje al soporte técnico.")
-            messagebox.showerror("Alerta", "Manda un mensaje al soporte técnico.")
+
             return False
 
     def _incrementar_contador_fallback(self):
@@ -125,7 +123,7 @@ class OpenRouterClient:
                     continue
                 else:
                     # Si ya estamos en fallback o es el segundo intento, lanzamos error
-                    raise RuntimeError("Límite de solicitudes alcanzado en todos los modelos. Intente más tarde.")
+                    raise RuntimeError("Posiblemente   ")
             
             elif respuesta.status_code != 200:
                 raise RuntimeError(f"OpenRouter error {respuesta.status_code}: {respuesta.text}")
@@ -179,10 +177,19 @@ class OpenRouterClient:
                     continue
                 else:
                     # Si ya estamos en fallback o es el segundo intento, lanzamos error
-                    raise RuntimeError("Límite de solicitudes alcanzado en todos los modelos. Intente más tarde.")
-            
-            elif respuesta.status_code != 200:
-                raise RuntimeError(f"OpenRouter error {respuesta.status_code}: {respuesta.text}")
+                    raise RuntimeError("Saturaste el límite de peticiones. Si el problema persiste te recomendamos usar ChatGPT")
+            elif respuesta.status_code == 400:
+                raise RuntimeError("Petición con problemas, posiblemente demasiado larga (Recuerda no adjuntar archivos muy grandes de muchas paginas).")
+            elif respuesta.status_code == 401:
+                raise RuntimeError("No autorizado. Verifica tu API key.")
+            elif respuesta.status_code == 402:
+                raise RuntimeError("Créditos insuficientes")
+            elif respuesta.status_code == 403:
+                raise RuntimeError("Contenido bloqueado por moderación")
+            elif respuesta.status_code == 502:
+                raise RuntimeError("Error del modelo o proveedor")
+            elif respuesta.status_code == 503:
+                raise RuntimeError("Proveedor no disponible. Intenta más tarde.")
 
             # Petición exitosa
             try:
