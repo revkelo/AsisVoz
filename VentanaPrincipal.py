@@ -240,14 +240,16 @@ class AsisVozApp(TkinterDnD.Tk):
         frame_entry = ctk.CTkFrame(frame_contenedor, fg_color="transparent")
         frame_entry.pack(fill="x")
 
-        # Campo de texto
-        self.entry_message = ctk.CTkEntry(
+        self.entry_message = ctk.CTkTextbox(
             frame_entry,
-            text_color="black",
-            placeholder_text="Escribe un mensaje..."
+            height=30,
+            text_color="black"
         )
         self.entry_message.pack(side="left", fill="x", expand=True)
+
+        # Capturar Enter para enviar
         self.entry_message.bind("<Return>", lambda event: self._on_enviar_mensaje())
+
 
         # Botón para adjuntar archivo Word
         self.btn_adjuntar_word = ctk.CTkButton(
@@ -398,7 +400,7 @@ class AsisVozApp(TkinterDnD.Tk):
             self.tooltip_label = None
 
     def _on_enviar_mensaje(self):
-        mensaje = self.entry_message.get().strip()
+        mensaje = self.entry_message.get("1.0", "end").strip()
         if not mensaje:
             messagebox.showwarning("Mensaje vacío", "Escribe un mensaje para enviar.")
             return
@@ -419,7 +421,7 @@ class AsisVozApp(TkinterDnD.Tk):
         ruta_word_local = self.word_path if hasattr(self, "word_path") else None
 
         # Limpia UI
-        self.entry_message.delete(0, "end")
+        self.entry_message.delete("1.0", "end")
         for widget in self.archivo_frame.winfo_children():
             widget.destroy()
         self.archivo_frame.pack_forget()
@@ -971,7 +973,8 @@ class AsisVozApp(TkinterDnD.Tk):
         """
         Envía el contenido de la caja de texto como "solo texto" (sin PDF).
         """
-        texto = self.entry_message.get().strip()
+        texto = self.entry_message.get("1.0", "end").strip()
+
         if texto == "":
             return
 
