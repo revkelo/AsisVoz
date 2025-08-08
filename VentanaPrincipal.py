@@ -848,6 +848,7 @@ class AsisVozApp(TkinterDnD.Tk):
             messagebox.showerror("Error", "Por favor selecciona un archivo de audio válido.")
             return
 
+        self.btn_transcribir.pack_forget()
         self.selected_files = [ruta]  # Sobrescribe con un solo archivo
         self._actualizar_lista_archivos()
         self.archivos_frame.pack_forget()  # Quita el anterior pack
@@ -858,6 +859,8 @@ class AsisVozApp(TkinterDnD.Tk):
 
         print("Archivo seleccionado:", self.selected_files[0])
         self.agregar_mensaje("✔ Archivo cargado correctamente")
+            # Mostrar el botón solo si no está visible
+
         self.btn_transcribir.pack(pady=(10, 5), fill="x")
 
     def _actualizar_lista_archivos(self):
@@ -921,11 +924,16 @@ class AsisVozApp(TkinterDnD.Tk):
             messagebox.showinfo("Sin archivos", "Primero selecciona archivos.")
             return
 
+        # Desactiva el botón mientras el usuario elige carpeta
+        self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
+        self.btn_abrir_transcripcion.pack_forget()
+        self.btn_abrir_transcripcion.pack_forget()
+
         # Solicitar al usuario una carpeta para guardar el PDF
         carpeta_destino = filedialog.askdirectory(
             title="Selecciona una carpeta para guardar el Word"
         )
-        self.btn_abrir_transcripcion.pack_forget()
+
 
         if not carpeta_destino:
             messagebox.showinfo("Cancelado", "No se seleccionó ninguna carpeta.")
@@ -936,6 +944,8 @@ class AsisVozApp(TkinterDnD.Tk):
 
         nombre_base = (nombre_base[:70] + '...') if len(nombre_base) > 50 else nombre_base
         self.nombre_word = os.path.join(carpeta_destino, f"{nombre_base}.docx")
+        
+        
         self.btn_transcribir.configure(text="Transcribir", state="enable")
             
         
