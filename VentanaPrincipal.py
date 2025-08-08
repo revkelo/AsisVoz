@@ -1,10 +1,12 @@
 import os
+import tempfile
 import threading
 import time
 import customtkinter as ctk
+from moviepy import AudioFileClip
 import requests
 from DeepGramClient import DeepgramPDFTranscriber
-
+from pydub import AudioSegment
 from customtkinter import CTkImage
 
 from OpenRouterClient import OpenRouterClient
@@ -17,7 +19,6 @@ from PIL import Image, ImageTk
 import ctypes
 from ctypes import wintypes
 import utils
-import math
 
 balance_actual= None
 balance_anterior = None
@@ -825,36 +826,58 @@ class AsisVozApp(TkinterDnD.Tk):
         self._agregar_mensaje("✔ Archivo cargado correctamente")
 
 
-
     def _on_browse_files(self):
         tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus *.mp4")]
         ruta = filedialog.askopenfilename(
-            title="Selecciona un archivo de audio",
+            title="Selecciona un archivo de audio (o video .mp4)",
             filetypes=tipos_permitidos
         )
 
         if not ruta:
             return
 
-        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus', '.mp4')
-        if not ruta.lower().endswith(extensiones_validas):
-            messagebox.showerror("Error", "Por favor selecciona un archivo de audio válido.")
-            return
+        # Extensiones que consideramos audio válidas
+        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
+        ruta_lower = ruta.lower()
 
-        self.btn_transcribir.pack_forget()
-        self.selected_files = [ruta]  # Sobrescribe con un solo archivo
+        # Si es .mp4, intentar convertir a mp3
+        if ruta_lower.endswith('.mp4'):
+            try:
+                nombre_base = os.path.splitext(os.path.basename(ruta))[0]
+                tmp_dir = tempfile.gettempdir()
+                ruta_convertida = os.path.join(tmp_dir, f"{nombre_base}.mp3")
+
+                # Convertir usando moviepy
+                clip = AudioFileClip(ruta)
+                clip.write_audiofile(ruta_convertida)
+                clip.close()
+
+                self.selected_files = [ruta_convertida]
+                self.agregar_mensaje("🔁 Archivo .mp4 convertido a .mp3 correctamente")
+
+                print("Archivo mp4 convertido a mp3:", ruta_convertida)
+
+            except Exception as e:
+                messagebox.showerror("Error al convertir", f"No se pudo convertir el .mp4 a .mp3:\n{e}")
+                return
+        else:
+            # Si no es mp4, validamos que sea una extensión de audio permitida
+            if not ruta_lower.endswith(extensiones_validas):
+                messagebox.showerror("Error", "Por favor selecciona un archivo de audio válido.")
+                return
+
+            self.selected_files = [ruta]
+            print("Archivo seleccionado:", ruta)
+            self.agregar_mensaje("✔ Archivo cargado correctamente")
+
+        # Actualizar la lista de archivos y nombre del word
         self._actualizar_lista_archivos()
-        self.archivos_frame.pack_forget()  # Quita el anterior pack
-        self.archivos_frame.pack(pady=(5, 20), fill="x")  # Modo compacto
 
         nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
         self.nombre_word = f"{nombre_base}.docx"
 
-
-        self.agregar_mensaje("✔ Archivo cargado correctamente")
-            # Mostrar el botón solo si no está visible
-
-        self.btn_transcribir.pack(pady=(10, 5), fill="x")
+        # Opcional: si quieres mostrar la ruta final en consola
+        print("Archivo final en uso:", self.selected_files[0])
 
     def _actualizar_lista_archivos(self):
         
