@@ -316,7 +316,7 @@ class AsisVozApp(TkinterDnD.Tk):
         imagen = Image.open(self.gif_path)
         try:
             while True:
-                frame = imagen.copy().convert("RGBA").resize((100, 100), Image.LANCZOS)
+                frame = imagen.copy().convert("RGBA").resize((80, 80), Image.LANCZOS)
                 frame_tk = ImageTk.PhotoImage(frame)
                 self.gif_frames.append(frame_tk)
                 imagen.seek(len(self.gif_frames))  # Siguiente frame
@@ -325,7 +325,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
         # Crear el label en la esquina inferior izquierda
         self.label = ctk.CTkLabel(self, text="")
-        self.label.place(relx=0.0, rely=1.0, anchor="sw")  # Inferior izquierda
+        self.label.place(relx=0.0, rely=1.0, x=50, anchor="sw")  # Inferior izquierda
 
     def _mostrar_gif(self):
         if self.gif_frames:
@@ -340,7 +340,7 @@ class AsisVozApp(TkinterDnD.Tk):
         imagen = Image.open("media/cargando.gif")
         try:
             while True:
-                frame = imagen.copy().convert("RGBA").resize((150, 150), Image.LANCZOS)
+                frame = imagen.copy().convert("RGBA").resize((100, 100), Image.LANCZOS)
                 self.gif_frames.append(ImageTk.PhotoImage(frame))
                 imagen.seek(len(self.gif_frames))
         except EOFError:
@@ -925,6 +925,7 @@ class AsisVozApp(TkinterDnD.Tk):
         carpeta_destino = filedialog.askdirectory(
             title="Selecciona una carpeta para guardar el Word"
         )
+        self.btn_abrir_transcripcion.pack_forget()
 
         if not carpeta_destino:
             messagebox.showinfo("Cancelado", "No se seleccionó ninguna carpeta.")
@@ -1148,7 +1149,7 @@ class AsisVozApp(TkinterDnD.Tk):
             chat_width = max(300, window_width - 450)
         
         # Calcular wraplength dinámicamente con margen más conservador
-        max_bubble_width = 750  # Límite estético máximo
+        max_bubble_width = 500  # Límite estético máximo
         wraplength = min(max_bubble_width, max(200, chat_width - 150))
 
         # Frame contenedor para cada mensaje
