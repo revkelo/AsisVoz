@@ -134,9 +134,8 @@ def mostrar_ventana_registro_equipo(root):
                 pass
         ventana_registro_equipo.geometry("400x200")
         ventana_registro_equipo.resizable(False, False)
-        
-        # Centrar la ventana
-        centrar_ctk(ventana_registro_equipo, 400, 200)
+
+        centrar_ctk(ventana_registro_equipo, 200, 400)
 
         # Configurar como ventana modal
         ventana_registro_equipo.transient(root)
