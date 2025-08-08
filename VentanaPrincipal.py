@@ -729,7 +729,7 @@ class AsisVozApp(TkinterDnD.Tk):
 
 
     def _on_browse_files(self):
-        tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus")]
+        tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus *.mp4")]
         ruta = filedialog.askopenfilename(
             title="Selecciona un archivo de audio",
             filetypes=tipos_permitidos
@@ -738,7 +738,7 @@ class AsisVozApp(TkinterDnD.Tk):
         if not ruta:
             return
 
-        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
+        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus', '.mp4')
         if not ruta.lower().endswith(extensiones_validas):
             messagebox.showerror("Error", "Por favor selecciona un archivo de audio válido.")
             return

@@ -1,9 +1,12 @@
+import ctypes
 import json
 import os
-import sys
+
 import customtkinter as ctk
 import tkinter as tk  # Necesario para Menu
 from tkinter import messagebox
+from screeninfo import get_monitors
+
 from VentanaKeys import VentanaLicencia
 from VentanaPrincipal import AsisVozApp
 import utils  
@@ -133,8 +136,8 @@ def mostrar_ventana_registro_equipo(root):
         ventana_registro_equipo.resizable(False, False)
         
         # Centrar la ventana
-        centrar_ventana(ventana_registro_equipo, 400, 200)
-        
+        centrar_ctk(ventana_registro_equipo, 400, 200)
+
         # Configurar como ventana modal
         ventana_registro_equipo.transient(root)
         ventana_registro_equipo.grab_set()
@@ -188,17 +191,43 @@ def mostrar_ventana_registro_equipo(root):
         # Traer al frente después de crear todos los elementos
         ventana_registro_equipo.after(10, lambda: traer_ventana_al_frente(ventana_registro_equipo, modal=True))
 
-def centrar_ventana(ventana, ancho, alto):
-    ventana.update_idletasks()
-    x = (ventana.winfo_screenwidth() // 2) - (ancho // 2)
-    y = (ventana.winfo_screenheight() // 2) - (alto // 2)
-    ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
-    
+def obtener_resolucion_windows():
+    user32 = ctypes.windll.user32
+    return user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+
+
+
+def centrar_ctk(win, alto, ancho):
+    win.update_idletasks()
+
+    # Márgenes de la ventana
+    border_x = win.winfo_rootx() - win.winfo_x()
+    border_y = win.winfo_rooty() - win.winfo_y()
+
+    # Corrección para bordes en CustomTkinter
+    border_x_corrected = int(border_x * 1.5)
+
+    # Resolución del monitor principal
+    monitor = get_monitors()[0]
+    screen_width = monitor.width
+    screen_height = monitor.height
+
+    # Calcular posición centrada
+    x = (screen_width // 2) - ((ancho + border_x_corrected) // 2)
+    y = (screen_height // 2) - ((alto + border_y + border_x_corrected // 2) // 2)
+
+    # Aplicar tamaño y posición
+    win.geometry(f"{ancho}x{alto}+{x}+{y}")
+    print(f"Ventana centrada en: {x}, {y} con tamaño {ancho}x{alto}")
+
+    win.update()
+
 
 def iniciar_asisvoz(root):
     
     if not licencia_ya_registrada():
         # Mostrar advertencia
+     
         messagebox.showwarning("Licencia requerida", "⚠️ Debe ingresar una licencia válida antes de continuar.")
         # Después de cerrar el mensaje, mostrar la ventana para registrar equipo
         root.after(100, lambda: mostrar_ventana_registro_equipo(root))
@@ -211,6 +240,7 @@ def iniciar_asisvoz(root):
         return
 
     root.destroy() 
+
     app = AsisVozApp(utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
 
 
@@ -221,15 +251,18 @@ def iniciar_asisvoz(root):
 
 def crear_ventana_principal():
   
-
+  
     root = ctk.CTk()
     root.title("AsisVoz")
-    ancho_ventana, alto_ventana = 600, 400
-    centrar_ventana(root, ancho_ventana, alto_ventana)
+
 
     # Crear menú
     menubar = tk.Menu(root)
     root.config(menu=menubar)
+    root.geometry("400x500")  # Tamaño inicial de la ventana
+    ancho_pantalla, alto_pantalla = obtener_resolucion_windows()
+
+    root.after(200, lambda: centrar_ctk(root, 400, 500))
 
 
     ico_path = utils.ruta_absoluta("media/logo.ico")
