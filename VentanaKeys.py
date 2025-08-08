@@ -52,7 +52,7 @@ class VentanaLicencia(ctk.CTkToplevel):
                 pass
         self.resizable(False, False)
 
-        ctk.set_appearance_mode("light")  # ⚠️ Debe ser "light", no "lights"
+        ctk.set_appearance_mode("light")  
         ctk.set_default_color_theme("blue")
 
         # Deepgram API Key
@@ -129,7 +129,6 @@ class VentanaLicencia(ctk.CTkToplevel):
 
                 utils.cifrar_archivo("config.json", "config.json.cif")
                 os.remove("config.json")
-                print("✅ Archivo config.json.cif creado correctamente desde la ventana.")
             except Exception as e:
                 print(f"❌ Error al crear el archivo cifrado desde ventana: {e}")
                 messagebox.showerror("Error", f"No se pudo crear el archivo cifrado: {e}")

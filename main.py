@@ -217,7 +217,7 @@ def centrar_ctk(win, alto, ancho):
 
     # Aplicar tamaño y posición
     win.geometry(f"{ancho}x{alto}+{x}+{y}")
-    print(f"Ventana centrada en: {x}, {y} con tamaño {ancho}x{alto}")
+
 
     win.update()
 
@@ -325,7 +325,5 @@ if __name__ == "__main__":
 
 
     utils.descifrar_y_extraer_claves()
-    print("Clave Deepgram:", utils.DEEPGRAM_API_KEY)
-    print("Clave OpenRouter:", utils.OPENROUTER_API_KEY)
     utils.reproducir_sonido("inicio")
     crear_ventana_principal()

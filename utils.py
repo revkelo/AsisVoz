@@ -25,8 +25,6 @@ def validar_api_key_deepgram(api_key):
 
     try:
         response = requests.get(url, headers=headers)
-        print(f"🔍 Deepgram status: {response.status_code}")
-        print(response.json())
         return response.status_code == 200
     except requests.exceptions.RequestException as e:
         print(f"❌ Error al conectar con Deepgram: {e}")
@@ -67,7 +65,6 @@ def cifrar_archivo(path_entrada, path_salida=None):
             path_salida = path_entrada + ".cif"
         with open(path_salida, "wb") as f:
             f.write(cifrado)
-        print(f"✅ Archivo cifrado guardado en: {path_salida}")
     except Exception as e:
         print(f"❌ Error al cifrar: {e}")
 
@@ -82,8 +79,6 @@ def verificar_openrouter_key(api_key: str) -> bool:
 
     try:
         response = requests.get(url, headers=headers)
-        print(f"🔍 OpenRouter status: {response.status_code}")
-        print(response.json())
         return response.status_code == 200
     except Exception as e:
         print(f"❌ Error al conectar con OpenRouter: {e}")
@@ -109,7 +104,7 @@ def descifrar_y_extraer_claves():
 
     # Validar que no estén vacías
         if not openrouter or not deepgram:
-            print("⚠️ Las claves están vacías o incompletas.")
+            print("Las claves están vacías o incompletas.")
             return None
 
         OPENROUTER_API_KEY = openrouter
@@ -138,7 +133,6 @@ def guardar_claves_cifradas( openrouter_key, deepgram_key):
         with open(RUTA_ARCHIVO, "wb") as f:
             f.write(datos_cifrados)
 
-        print(f"✅ Claves cifradas guardadas en: {RUTA_ARCHIVO}")
         return True
     except Exception as e:
         print(f"❌ Error al guardar claves cifradas: {e}")
