@@ -829,52 +829,65 @@ class AsisVozApp(TkinterDnD.Tk):
 
 
     def _on_browse_files(self):
-        tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus *.mp4")]
-        ruta = filedialog.askopenfilename(
-            title="Selecciona un archivo de audio",
-            filetypes=tipos_permitidos
-        )
+        tipos_permitidos = [
+            ("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus *.mp4")
+        ]
+
+        try:
+            ruta = filedialog.askopenfilename(
+                title="Selecciona un archivo de audio",
+                filetypes=tipos_permitidos
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo abrir el diálogo de archivos:\n{e}")
+            return
 
         if not ruta:
-            return
+            return  # Usuario canceló
 
         extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus', '.mp4')
         if not ruta.lower().endswith(extensiones_validas):
             messagebox.showerror("Error", "Por favor selecciona un archivo de audio válido.")
             return
 
+        # Ocultar botón mientras se procesa
         self.btn_transcribir.pack_forget()
 
-        if ruta.lower().endswith('.mp4'):
-            try:
+        try:
+            if ruta.lower().endswith('.mp4'):
                 nombre_base = os.path.splitext(os.path.basename(ruta))[0]
-                self.agregar_mensaje("Archivo .mp4 convertirtiendo a .mp3")
+                self.agregar_mensaje("📼 Archivo .mp4 detectado. Convirtiendo a .mp3...")
+
                 tmp_dir = tempfile.gettempdir()
                 ruta_convertida = os.path.join(tmp_dir, f"{nombre_base}.mp3")
 
-                # Convertir mp4 a mp3 con moviepy
+                # Manejo seguro del recurso
                 audio_clip = AudioFileClip(ruta)
                 audio_clip.write_audiofile(ruta_convertida, logger=None)
                 audio_clip.close()
 
                 self.selected_files = [ruta_convertida]
-                self.agregar_mensaje("🔁 Archivo .mp4 convertido a .mp3 correctamente")
+                self.agregar_mensaje("🔁 Conversión a .mp3 completada con éxito ✅")
                 print("Archivo mp4 convertido a mp3:", ruta_convertida)
-            except Exception as e:
-                messagebox.showerror("Error al convertir", f"No se pudo convertir el .mp4 a .mp3:\n{e}")
-                return
-        else:
-            self.selected_files = [ruta]
+            else:
+                self.selected_files = [ruta]
 
+        except Exception as e:
+            messagebox.showerror("Error al procesar", f"Ocurrió un problema al cargar el archivo:\n{e}")
+            return
+
+        # Refrescar lista de archivos
         self._actualizar_lista_archivos()
         self.archivos_frame.pack_forget()
         self.archivos_frame.pack(pady=(5, 20), fill="x")
 
-        nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
-        self.nombre_word = f"{nombre_base}.docx"
+        try:
+            nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
+            self.nombre_word = f"{nombre_base}.docx"
+        except Exception:
+            self.nombre_word = "transcripcion.docx"
 
         self.agregar_mensaje("✔ Archivo cargado correctamente")
-
         self.btn_transcribir.pack(pady=(10, 5), fill="x")
 
 
