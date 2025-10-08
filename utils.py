@@ -1,37 +1,22 @@
-import json
+# utils.py
 import os
 import sys
+import json
 import requests
+import winsound
+from typing import Optional
 from cryptography.fernet import Fernet
 
 # ------------------ CONSTANTES ------------------
 CLAVE_FIJA = b'K9TOUzAY5sQWnrsMfSrSWS9MD9KTv6c_Btf5n65_1Lc='
 fernet = Fernet(CLAVE_FIJA)
 RUTA_ARCHIVO = "config.json.cif"
+
 # ------------------ VARIABLES GLOBALES ------------------
-OPENROUTER_API_KEY = ""
-DEEPGRAM_API_KEY = ""
+OPENROUTER_API_KEY: Optional[str] = None   # opcional: ya no se pide en la UI
+DEEPGRAM_API_KEY: Optional[str] = None
 
-# ------------------ FUNCIONES API KEYS ------------------
-
-def validar_api_key_deepgram(api_key):
-    """
-    Verifica si la clave API de Deepgram es válida.
-    """
-    url = "https://api.deepgram.com/v1/projects"
-    headers = {
-        "Authorization": f"Token {api_key}"
-    }
-
-    try:
-        response = requests.get(url, headers=headers)
-        return response.status_code == 200
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Error al conectar con Deepgram: {e}")
-        return False
-
-import winsound
-
+# ------------------ UTILIDADES UI ------------------
 def reproducir_sonido(tipo="finalizado"):
     if tipo == "finalizado":
         winsound.MessageBeep(winsound.MB_OK)
@@ -39,24 +24,16 @@ def reproducir_sonido(tipo="finalizado"):
         winsound.MessageBeep(winsound.MB_ICONHAND)
     elif tipo == "inicio":
         winsound.MessageBeep(winsound.MB_ICONASTERISK)
-    else:
-        print("Tipo de sonido no válido.")
 
-
-
-"""Devuelve ruta absoluta para ejecución directa"""
-def ruta_absoluta(relative_path):
-  
+def ruta_absoluta(relative_path: str) -> str:
     try:
-        base_path = sys._MEIPASS
+        base_path = sys._MEIPASS  # type: ignore
     except Exception:
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
-def cifrar_archivo(path_entrada, path_salida=None):
-    """
-    Cifra un archivo con Fernet y lo guarda con extensión .cif.
-    """
+# ------------------ CIFRADO / DESCIFRADO ------------------
+def cifrar_archivo(path_entrada: str, path_salida: str | None = None) -> None:
     try:
         with open(path_entrada, "rb") as f:
             datos = f.read()
@@ -68,47 +45,70 @@ def cifrar_archivo(path_entrada, path_salida=None):
     except Exception as e:
         print(f"❌ Error al cifrar: {e}")
 
-def verificar_openrouter_key(api_key: str) -> bool:
-    """
-    Verifica si la clave API de OpenRouter es válida.
-    """
-    url = "https://openrouter.ai/api/v1/key"
-    headers = {
-        "Authorization": f"Bearer {api_key.strip()}"
-    }
+def _descifrar_bytes(path: str) -> bytes:
+    with open(path, "rb") as f:
+        datos_cifrados = f.read()
+    return fernet.decrypt(datos_cifrados)
 
+# ------------------ GESTIÓN DE CLAVES ------------------
+def validar_api_key_deepgram(api_key: str) -> bool:
+    """
+    Verifica si la clave API de Deepgram es válida haciendo GET /v1/projects.
+    """
+    url = "https://api.deepgram.com/v1/projects"
+    headers = {"Authorization": f"Token {api_key.strip()}"}
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, timeout=10)
         return response.status_code == 200
+    except Exception as e:
+        print(f"❌ Error al conectar con Deepgram: {e}")
+        return False
+
+# (Opcional) se mantiene por compatibilidad si en otra parte de tu código lo llamas,
+# pero ya NO se usa desde la ventana de licencia.
+def verificar_openrouter_key(api_key: str) -> bool:
+    url = "https://openrouter.ai/api/v1/key"
+    headers = {"Authorization": f"Bearer {api_key.strip()}"}
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        return r.status_code == 200
     except Exception as e:
         print(f"❌ Error al conectar con OpenRouter: {e}")
         return False
 
-
-
-def descifrar_y_extraer_claves():
+def guardar_claves_cifradas(deepgram_key: str) -> bool:
     """
-    Descifra un archivo .cif y extrae claves API desde JSON.
-    Las guarda en variables globales OPENROUTER_API_KEY y DEEPGRAM_API_KEY.
+    Guarda SOLO Deepgram en config.json.cif.
+    Estructura final: {"deepgram_api_key": "<key>"}
+    """
+    try:
+        data = {"deepgram_api_key": deepgram_key}
+        raw = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        datos_cifrados = fernet.encrypt(raw)
+        with open(RUTA_ARCHIVO, "wb") as f:
+            f.write(datos_cifrados)
+        return True
+    except Exception as e:
+        print(f"❌ Error al guardar claves cifradas: {e}")
+        return False
+
+def descifrar_y_extraer_claves() -> dict | None:
+    """
+    Descifra config.json.cif y extrae claves.
+    Compat:
+      - Lee "deepgram_api_key" (nuevo) o "deepgram_key" (muy viejo).
+      - Si existe "openrouter_api_key" (viejo), la carga como opcional.
     """
     global OPENROUTER_API_KEY, DEEPGRAM_API_KEY
+    if not os.path.exists(RUTA_ARCHIVO) or os.path.getsize(RUTA_ARCHIVO) == 0:
+        return None
 
     try:
-        with open(RUTA_ARCHIVO, "rb") as f:
-            datos_cifrados = f.read()
-        descifrado = fernet.decrypt(datos_cifrados)
-        datos_json = json.loads(descifrado.decode("utf-8"))
+        raw = _descifrar_bytes(RUTA_ARCHIVO)
+        data = json.loads(raw.decode("utf-8"))
 
-        openrouter = datos_json.get("openrouter_api_key")
-        deepgram = datos_json.get("deepgram_api_key")
-
-    # Validar que no estén vacías
-        if not openrouter or not deepgram:
-            print("Las claves están vacías o incompletas.")
-            return None
-
-        OPENROUTER_API_KEY = openrouter
-        DEEPGRAM_API_KEY = deepgram
+        OPENROUTER_API_KEY = data.get("openrouter_api_key") or None  # opcional
+        DEEPGRAM_API_KEY = data.get("deepgram_api_key") or data.get("deepgram_key") or None
 
         return {
             "openrouter_api_key": OPENROUTER_API_KEY,
@@ -118,36 +118,33 @@ def descifrar_y_extraer_claves():
         print(f"❌ Error al descifrar o extraer claves: {e}")
         return None
 
-def guardar_claves_cifradas( openrouter_key, deepgram_key):
+def obtener_deepgram_key_prioritaria() -> Optional[str]:
     """
-    Cifra las claves API y las guarda como un archivo .cif
+    Orden de búsqueda:
+    1) ENV DEEPGRAM_API_KEY
+    2) Global si ya fue cargada
+    3) Archivo cifrado (si aún no)
     """
-    try:
-        claves_dict = {
-            "openrouter_api_key": openrouter_key,
-            "deepgram_api_key": deepgram_key
-        }
-        datos_json = json.dumps(claves_dict).encode("utf-8")
-        datos_cifrados = fernet.encrypt(datos_json)
+    envk = os.getenv("DEEPGRAM_API_KEY")
+    if envk:
+        return envk.strip()
+    if DEEPGRAM_API_KEY:
+        return DEEPGRAM_API_KEY.strip()
+    cfg = descifrar_y_extraer_claves()
+    if cfg and cfg.get("deepgram_api_key"):
+        return cfg["deepgram_api_key"].strip()
+    return None
 
-        with open(RUTA_ARCHIVO, "wb") as f:
-            f.write(datos_cifrados)
-
-        return True
-    except Exception as e:
-        print(f"❌ Error al guardar claves cifradas: {e}")
-        return False
-
-# ✅ Obtener project_id (no se usa ahora, pero útil si lo necesitas después)
-def obtener_project_id_deepgram(api_key):
+# ------------------ Deepgram Helpers ------------------
+def obtener_project_id_deepgram(api_key: str) -> str | None:
     try:
         headers = {"Authorization": f"Token {api_key}"}
-        response = requests.get("https://api.deepgram.com/v1/projects", headers=headers)
+        response = requests.get("https://api.deepgram.com/v1/projects", headers=headers, timeout=10)
         if response.status_code == 200:
             data = response.json()
             return data["projects"][0]["project_id"]
         else:
-            print(f"Error al obtener project_id: {response.status_code} - {response.text}")
+            print(f"Error al obtener project_id: {response.status_code} - {response.text[:200]}")
     except Exception as e:
         print(f"Excepción al obtener project_id: {e}")
     return None

@@ -9,10 +9,8 @@ from screeninfo import get_monitors
 
 from VentanaKeys import VentanaLicencia
 from VentanaPrincipal import AsisVozApp
-import utils  
+import utils
 from PIL import Image
-
-
 
 # Configuración del tema
 ctk.set_appearance_mode("light")
@@ -20,9 +18,9 @@ ctk.set_default_color_theme("blue")
 
 # Lista de licencias válidas
 LICENCIAS_VALIDAS = [
-     "A7X4D9-KLM3Q2-Z8N6YP",
-     "P3W9XK-8JDLQ1-R2M4VT",
-     "QZ8C1B-MN4V7E-5TPR6X"
+    "A7X4D9-KLM3Q2-Z8N6YP",
+    "P3W9XK-8JDLQ1-R2M4VT",
+    "QZ8C1B-MN4V7E-5TPR6X"
 ]
 
 ventana_licencia = None
@@ -31,54 +29,50 @@ ventana_registro_equipo = None
 def traer_ventana_al_frente(ventana, modal=True):
     """Función para traer una ventana al frente de manera robusta"""
     try:
-        ventana.deiconify()  # Asegura que la ventana esté visible
-        ventana.lift()  # Levanta la ventana
-        ventana.attributes('-topmost', True)  # Pone la ventana siempre arriba temporalmente
-        ventana.focus_force()  # Fuerza el foco
-        
+        ventana.deiconify()
+        ventana.lift()
+        ventana.attributes('-topmost', True)
+        ventana.focus_force()
         if modal:
-            ventana.grab_set()  # Hace la ventana modal solo si se especifica
-        
-        # Después de un momento, quita el always-on-top pero mantiene el foco
+            ventana.grab_set()
         ventana.after(100, lambda: ventana.attributes('-topmost', False))
     except:
         pass
 
 def mostrar_ventana_licencia(root):
+    """Abrir ventana para registrar SOLO la clave de Deepgram"""
     global ventana_licencia
     if ventana_licencia is not None and ventana_licencia.winfo_exists():
-        traer_ventana_al_frente(ventana_licencia, modal=False)  # No modal para ventana de licencia
+        traer_ventana_al_frente(ventana_licencia, modal=False)
     else:
-        ventana_licencia = VentanaLicencia(root, utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
-        
-        # Configurar el cierre adecuado para la ventana de licencia
+        # ⬇️ AHORA SOLO PASAMOS LA CLAVE DE DEEPGRAM
+        ventana_licencia = VentanaLicencia(root, utils.DEEPGRAM_API_KEY)
+
+        # Cierre seguro
         original_destroy = ventana_licencia.destroy
         def safe_destroy():
             try:
-                ventana_licencia.grab_release()  # Libera el grab si existe
+                ventana_licencia.grab_release()
             except:
                 pass
             original_destroy()
-        
         ventana_licencia.destroy = safe_destroy
         ventana_licencia.protocol("WM_DELETE_WINDOW", safe_destroy)
-        
-        traer_ventana_al_frente(ventana_licencia, modal=False)  # No modal para ventana de licencia
+
+        traer_ventana_al_frente(ventana_licencia, modal=False)
 
 ARCHIVO_ESTADO_LICENCIA = "estado_licencia.json"
 
 def validar_keys():
-    if not utils.OPENROUTER_API_KEY or not utils.DEEPGRAM_API_KEY:
-        # Mostrar mensaje de error
-        messagebox.showerror("Claves API inválidas", "❌ Las claves API no están correctamente configuradas.")
+    """AHORA solo exige Deepgram"""
+    if not utils.DEEPGRAM_API_KEY:
+        messagebox.showerror("Claves API inválidas", "❌ Falta configurar la clave de Deepgram.")
         return False
     return True
-
 
 # ✅ Verificar si la licencia ingresada está en la lista
 def verificar_licencia(clave_ingresada):
     return clave_ingresada in LICENCIAS_VALIDAS
-
 
 # ✅ Guardar en archivo local que la licencia fue aceptada
 def guardar_licencia_valida():
@@ -87,7 +81,6 @@ def guardar_licencia_valida():
             json.dump({"licencia_valida": True}, f)
     except Exception as e:
         messagebox.showerror("Error", f"No se pudo guardar el estado de licencia:\n{e}")
-
 
 # ✅ Verificar si ya hay una licencia registrada válida
 def licencia_ya_registrada():
@@ -101,19 +94,17 @@ def licencia_ya_registrada():
     return False
 
 def validar_licencia(self):
-        clave = self.entry_licencia.get().strip()
-        if verificar_licencia(clave):
-            guardar_licencia_valida()
-            messagebox.showinfo("✅ Licencia válida", "La licencia fue aceptada.")
-            self.destroy()
-        else:
-            messagebox.showerror("❌ Licencia inválida", "La licencia no es válida.")
-
+    clave = self.entry_licencia.get().strip()
+    if verificar_licencia(clave):
+        guardar_licencia_valida()
+        messagebox.showinfo("✅ Licencia válida", "La licencia fue aceptada.")
+        self.destroy()
+    else:
+        messagebox.showerror("❌ Licencia inválida", "La licencia no es válida.")
 
 # ✅ Lógica para iniciar app solo si ya hay licencia
 def iniciar_si_hay_licencia(root):
     if licencia_ya_registrada():
-        
         iniciar_asisvoz(root)
     else:
         messagebox.showwarning("Licencia Requerida", "⚠️ Debe ingresar una licencia válida.")
@@ -137,20 +128,19 @@ def mostrar_ventana_registro_equipo(root):
 
         centrar_ctk(ventana_registro_equipo, 200, 400)
 
-        # Configurar como ventana modal
         ventana_registro_equipo.transient(root)
         ventana_registro_equipo.grab_set()
-        
+
         label_titulo = ctk.CTkLabel(
-            ventana_registro_equipo, 
-            text="Ingrese su clave de licencia:", 
+            ventana_registro_equipo,
+            text="Ingrese su clave de licencia:",
             font=ctk.CTkFont(size=14, weight="bold")
         )
         label_titulo.pack(pady=20)
 
         entry_clave = ctk.CTkEntry(
-            ventana_registro_equipo, 
-            font=ctk.CTkFont(size=12), 
+            ventana_registro_equipo,
+            font=ctk.CTkFont(size=12),
             width=300,
             height=35,
             placeholder_text="Ingrese su clave de licencia"
@@ -160,41 +150,33 @@ def mostrar_ventana_registro_equipo(root):
         def registrar():
             clave = entry_clave.get()
             if verificar_licencia(clave):
-                guardar_licencia_valida()  # ✅ Guarda que la licencia es válida
+                guardar_licencia_valida()
                 messagebox.showinfo("Licencia válida", "✅ Licencia válida. Equipo registrado.")
                 ventana_registro_equipo.grab_release()
                 ventana_registro_equipo.destroy()
-
             else:
                 messagebox.showerror("Licencia inválida", "❌ La clave de licencia no es válida.")
 
         def cerrar_ventana():
-            ventana_registro_equipo.grab_release()  # Libera el grab antes de cerrar
+            ventana_registro_equipo.grab_release()
             ventana_registro_equipo.destroy()
 
         btn_registrar = ctk.CTkButton(
-            ventana_registro_equipo, 
-            text="Registrar", 
+            ventana_registro_equipo,
+            text="Registrar",
             font=ctk.CTkFont(size=12, weight="bold"),
             width=150,
             height=35,
             command=registrar
         )
         btn_registrar.pack(pady=20)
-         
 
-        
-        # Manejar el cierre de la ventana
         ventana_registro_equipo.protocol("WM_DELETE_WINDOW", cerrar_ventana)
-        
-        # Traer al frente después de crear todos los elementos
         ventana_registro_equipo.after(10, lambda: traer_ventana_al_frente(ventana_registro_equipo, modal=True))
 
 def obtener_resolucion_windows():
     user32 = ctypes.windll.user32
     return user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
-
-
 
 def centrar_ctk(win, alto, ancho):
     win.update_idletasks()
@@ -217,52 +199,35 @@ def centrar_ctk(win, alto, ancho):
 
     # Aplicar tamaño y posición
     win.geometry(f"{ancho}x{alto}+{x}+{y}")
-
-
     win.update()
 
-
 def iniciar_asisvoz(root):
-    
     if not licencia_ya_registrada():
-        # Mostrar advertencia
-     
         messagebox.showwarning("Licencia requerida", "⚠️ Debe ingresar una licencia válida antes de continuar.")
-        # Después de cerrar el mensaje, mostrar la ventana para registrar equipo
         root.after(100, lambda: mostrar_ventana_registro_equipo(root))
         return
 
     if not validar_keys():
-        
-        # Después de cerrar el mensaje, mostrar la ventana para registrar claves
-        root.after(100, lambda: mostrar_ventana_licencia(root))  # reutiliza VentanaLicencia para corregir claves
+        root.after(100, lambda: mostrar_ventana_licencia(root))  # VentanaLicencia (solo Deepgram)
         return
 
-    root.destroy() 
+    root.destroy()
 
-    app = AsisVozApp(utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
-
-
-
+    # ⬇️ AHORA LA APP SOLO RECIBE LA CLAVE DE DEEPGRAM
+    app = AsisVozApp(utils.DEEPGRAM_API_KEY)
     app.mainloop()
 
-
-
 def crear_ventana_principal():
-  
-  
     root = ctk.CTk()
     root.title("AsisVoz")
-
 
     # Crear menú
     menubar = tk.Menu(root)
     root.config(menu=menubar)
-    root.geometry("400x500")  # Tamaño inicial de la ventana
-    ancho_pantalla, alto_pantalla = obtener_resolucion_windows()
+    root.geometry("400x500")
+    _ = obtener_resolucion_windows()
 
     root.after(200, lambda: centrar_ctk(root, 400, 500))
-
 
     ico_path = utils.ruta_absoluta("media/logo.ico")
     if os.path.exists(ico_path):
@@ -282,9 +247,7 @@ def crear_ventana_principal():
     main_frame = ctk.CTkFrame(root)
     main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-
-
-      # Imagen
+    # Imagen
     try:
         ruta_imagen = os.path.join("media", "icono.png")
         image = Image.open(ruta_imagen).resize((110, 110))
@@ -294,7 +257,6 @@ def crear_ventana_principal():
         label_img.pack(pady=(50, 15))
     except Exception as e:
         print(f"❌ Error al cargar imagen: {e}")
-    
 
     # Botón principal
     btn_iniciar = ctk.CTkButton(
@@ -316,14 +278,10 @@ def crear_ventana_principal():
     )
     info_label.pack(pady=(10, 20))
 
-     
     root.resizable(False, False)
-
     root.mainloop()
 
 if __name__ == "__main__":
-
-
-    utils.descifrar_y_extraer_claves()
+    utils.descifrar_y_extraer_claves()  # Debe cargar solo deepgram_api_key
     utils.reproducir_sonido("inicio")
     crear_ventana_principal()
