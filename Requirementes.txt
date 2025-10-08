@@ -1,6 +1,8 @@
 numpy==1.26.4
 soundcard==0.4.5
 soundfile==0.13.1
-cffi==1.16.0
+sounddevice==0.5.2
+cffi==2.0.0
 pycparser==2.23
 customtkinter==5.2.2
+
