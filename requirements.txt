@@ -1,0 +1,10 @@
+deepgram-sdk<5,>=3.1
+customtkinter
+screeninfo
+pillow
+python-docx
+requests
+cryptography
+moviepy
+tkinterdnd2
+fpdf2
