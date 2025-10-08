@@ -8,7 +8,7 @@ from tkinter import messagebox
 from screeninfo import get_monitors
 
 from VentanaKeys import VentanaLicencia
-from VentanaPrincipal import AsisVozApp
+from VentanaPrincipalLite import AsisVozApp
 import utils  
 from PIL import Image
 
@@ -49,7 +49,7 @@ def mostrar_ventana_licencia(root):
     if ventana_licencia is not None and ventana_licencia.winfo_exists():
         traer_ventana_al_frente(ventana_licencia, modal=False)  # No modal para ventana de licencia
     else:
-        ventana_licencia = VentanaLicencia(root, utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
+        ventana_licencia = VentanaLicencia(root, utils.DEEPGRAM_API_KEY)
         
         # Configurar el cierre adecuado para la ventana de licencia
         original_destroy = ventana_licencia.destroy
@@ -68,7 +68,7 @@ def mostrar_ventana_licencia(root):
 ARCHIVO_ESTADO_LICENCIA = "estado_licencia.json"
 
 def validar_keys():
-    if not utils.OPENROUTER_API_KEY or not utils.DEEPGRAM_API_KEY:
+    if not utils.DEEPGRAM_API_KEY:
         # Mostrar mensaje de error
         messagebox.showerror("Claves API inválidas", "❌ Las claves API no están correctamente configuradas.")
         return False
@@ -117,7 +117,7 @@ def iniciar_si_hay_licencia(root):
         iniciar_asisvoz(root)
     else:
         messagebox.showwarning("Licencia Requerida", "⚠️ Debe ingresar una licencia válida.")
-        VentanaLicencia(root)
+        VentanaLicencia(root, utils.DEEPGRAM_API_KEY)
 
 def mostrar_ventana_registro_equipo(root):
     global ventana_registro_equipo
@@ -240,7 +240,7 @@ def iniciar_asisvoz(root):
 
     root.destroy() 
 
-    app = AsisVozApp(utils.OPENROUTER_API_KEY, utils.DEEPGRAM_API_KEY)
+    app = AsisVozApp(utils.DEEPGRAM_API_KEY)
 
 
 
@@ -322,8 +322,12 @@ def crear_ventana_principal():
     root.mainloop()
 
 if __name__ == "__main__":
-
-
-    utils.descifrar_y_extraer_claves()
+    # Cargar clave de Deepgram desde el archivo cifrado (si existe)
+    try:
+        from utils_loader import load_deepgram_key
+        load_deepgram_key()
+    except Exception:
+        pass
     utils.reproducir_sonido("inicio")
     crear_ventana_principal()
+

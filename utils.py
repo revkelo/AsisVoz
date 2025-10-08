@@ -91,7 +91,7 @@ def descifrar_y_extraer_claves():
     Descifra un archivo .cif y extrae claves API desde JSON.
     Las guarda en variables globales OPENROUTER_API_KEY y DEEPGRAM_API_KEY.
     """
-    global OPENROUTER_API_KEY, DEEPGRAM_API_KEY
+    global DEEPGRAM_API_KEY
 
     try:
         with open(RUTA_ARCHIVO, "rb") as f:
@@ -99,8 +99,7 @@ def descifrar_y_extraer_claves():
         descifrado = fernet.decrypt(datos_cifrados)
         datos_json = json.loads(descifrado.decode("utf-8"))
 
-        openrouter = datos_json.get("openrouter_api_key")
-        deepgram = datos_json.get("deepgram_api_key")
+        deepgram = datos_json.get("deepgram_api_key") or datos_json.get("deepgram_key")
 
     # Validar que no estén vacías
         if not openrouter or not deepgram:
@@ -151,3 +150,17 @@ def obtener_project_id_deepgram(api_key):
     except Exception as e:
         print(f"Excepción al obtener project_id: {e}")
     return None
+
+def guardar_clave_deepgram_cifrada(deepgram_key: str) -> bool:
+    """
+    Guarda solo la clave de Deepgram en el archivo cifrado `RUTA_ARCHIVO`.
+    """
+    try:
+        datos_json = json.dumps({"deepgram_api_key": deepgram_key}).encode("utf-8")
+        datos_cifrados = fernet.encrypt(datos_json)
+        with open(RUTA_ARCHIVO, "wb") as f:
+            f.write(datos_cifrados)
+        return True
+    except Exception as e:
+        print(f"�?O Error al guardar clave cifrada: {e}")
+        return False
