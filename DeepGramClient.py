@@ -56,7 +56,7 @@ class DeepgramPDFTranscriber:
                 audio_bytes = f.read()
 
             options = PrerecordedOptions(
-                model="nova-2",
+                model="nova-3",
                 language="es",
                 smart_format=True,
                 punctuate=True,
