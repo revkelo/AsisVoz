@@ -16,8 +16,8 @@ class OpenRouterClient:
         self.endpoint = "https://openrouter.ai/api/v1/chat/completions"
         
         # Control de fallback para modelo alternativo
-        self.modelo_principal = "deepseek/deepseek-r1-0528:free"
-        self.modelo_fallback = "deepseek/deepseek-r1:free"
+        self.modelo_principal = "openai/gpt-oss-20b:free"
+        self.modelo_fallback = "openai/gpt-oss-20b:free"
         self.usando_fallback = False
         self.contador_fallback = 0
         self.max_peticiones_fallback = 5
