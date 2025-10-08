@@ -1,0 +1,11 @@
+customtkinter
+pillow
+screeninfo
+numpy
+soundcard
+soundfile
+moviepy
+requests
+fpdf
+python-docx
+cryptography

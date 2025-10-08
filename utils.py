@@ -13,7 +13,6 @@ fernet = Fernet(CLAVE_FIJA)
 RUTA_ARCHIVO = "config.json.cif"
 
 # ------------------ VARIABLES GLOBALES ------------------
-OPENROUTER_API_KEY: Optional[str] = None   # opcional: ya no se pide en la UI
 DEEPGRAM_API_KEY: Optional[str] = None
 
 # ------------------ UTILIDADES UI ------------------
@@ -43,7 +42,7 @@ def cifrar_archivo(path_entrada: str, path_salida: str | None = None) -> None:
         with open(path_salida, "wb") as f:
             f.write(cifrado)
     except Exception as e:
-        print(f"❌ Error al cifrar: {e}")
+        print(f"Error al cifrar: {e}")
 
 def _descifrar_bytes(path: str) -> bytes:
     with open(path, "rb") as f:
@@ -61,19 +60,7 @@ def validar_api_key_deepgram(api_key: str) -> bool:
         response = requests.get(url, headers=headers, timeout=10)
         return response.status_code == 200
     except Exception as e:
-        print(f"❌ Error al conectar con Deepgram: {e}")
-        return False
-
-# (Opcional) se mantiene por compatibilidad si en otra parte de tu código lo llamas,
-# pero ya NO se usa desde la ventana de licencia.
-def verificar_openrouter_key(api_key: str) -> bool:
-    url = "https://openrouter.ai/api/v1/key"
-    headers = {"Authorization": f"Bearer {api_key.strip()}"}
-    try:
-        r = requests.get(url, headers=headers, timeout=10)
-        return r.status_code == 200
-    except Exception as e:
-        print(f"❌ Error al conectar con OpenRouter: {e}")
+        print(f"Error al conectar con Deepgram: {e}")
         return False
 
 def guardar_claves_cifradas(deepgram_key: str) -> bool:
@@ -89,7 +76,7 @@ def guardar_claves_cifradas(deepgram_key: str) -> bool:
             f.write(datos_cifrados)
         return True
     except Exception as e:
-        print(f"❌ Error al guardar claves cifradas: {e}")
+        print(f"Error al guardar claves cifradas: {e}")
         return False
 
 def descifrar_y_extraer_claves() -> dict | None:
@@ -97,25 +84,18 @@ def descifrar_y_extraer_claves() -> dict | None:
     Descifra config.json.cif y extrae claves.
     Compat:
       - Lee "deepgram_api_key" (nuevo) o "deepgram_key" (muy viejo).
-      - Si existe "openrouter_api_key" (viejo), la carga como opcional.
     """
-    global OPENROUTER_API_KEY, DEEPGRAM_API_KEY
+    global DEEPGRAM_API_KEY
     if not os.path.exists(RUTA_ARCHIVO) or os.path.getsize(RUTA_ARCHIVO) == 0:
         return None
 
     try:
         raw = _descifrar_bytes(RUTA_ARCHIVO)
         data = json.loads(raw.decode("utf-8"))
-
-        OPENROUTER_API_KEY = data.get("openrouter_api_key") or None  # opcional
         DEEPGRAM_API_KEY = data.get("deepgram_api_key") or data.get("deepgram_key") or None
-
-        return {
-            "openrouter_api_key": OPENROUTER_API_KEY,
-            "deepgram_api_key": DEEPGRAM_API_KEY
-        }
+        return {"deepgram_api_key": DEEPGRAM_API_KEY}
     except Exception as e:
-        print(f"❌ Error al descifrar o extraer claves: {e}")
+        print(f"Error al descifrar o extraer claves: {e}")
         return None
 
 def obtener_deepgram_key_prioritaria() -> Optional[str]:

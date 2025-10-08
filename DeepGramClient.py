@@ -1,6 +1,6 @@
 import os
 import time
-from deepgram import DeepgramClient, PrerecordedOptions
+import requests
 from fpdf import FPDF
 from docx import Document
 from docx.shared import Pt
@@ -11,7 +11,7 @@ class DeepgramPDFTranscriber:
     def __init__(self, api_key: str):
         if not api_key:
             raise ValueError("API key de Deepgram requerida.")
-        self.client = DeepgramClient(api_key)
+        self.api_key = api_key
 
     def segundos_a_hhmmss(self, segundos: float) -> str:
         horas = int(segundos // 3600)
@@ -38,42 +38,43 @@ class DeepgramPDFTranscriber:
 
         pdf.output(nombre_salida)
 
-
     def transcribir_audio(self, ruta_audio, nombre_salida):
-        inicio = time.time()
         try:
             if not ruta_audio or not os.path.isfile(ruta_audio):
-                raise FileNotFoundError("❌ Archivo no válido o no encontrado.")
+                raise FileNotFoundError("Archivo no válido o no encontrado.")
 
             if os.path.exists(nombre_salida):
                 try:
                     with open(nombre_salida, "a"):
                         pass
                 except PermissionError:
-                    raise PermissionError(f"❌ El archivo '{nombre_salida}' está abierto en Word. Ciérralo e inténtalo de nuevo.")
+                    raise PermissionError(
+                        f"El archivo '{nombre_salida}' está abierto en Word. Ciérralo e inténtalo de nuevo."
+                    )
 
             with open(ruta_audio, "rb") as f:
                 audio_bytes = f.read()
 
-            options = PrerecordedOptions(
-                model="nova-2",
-                language="es",
-                smart_format=True,
-                punctuate=True,
-                paragraphs=True,
-                diarize=True,
-            )
+            params = {
+                "model": "nova-3",
+                "language": "es",
+                "smart_format": True,
+                "punctuate": True,
+                "paragraphs": True,
+                "diarize": True,
+            }
+            url = "https://api.deepgram.com/v1/listen"
+            headers = {
+                "Authorization": f"Token {self.api_key}",
+                "Content-Type": "application/octet-stream",
+            }
+            resp = requests.post(url, params=params, headers=headers, data=audio_bytes, timeout=100)
+            if resp.status_code != 200:
+                raise RuntimeError(f"Error Deepgram {resp.status_code}: {resp.text[:300]}")
 
-            response = self.client.listen.prerecorded.v("1").transcribe_file(
-                {"buffer": audio_bytes},
-                options,
-                timeout=1000
-            )
+            data = resp.json()
+            duracion_total = data.get("metadata", {}).get("duration", 0)
 
-            duracion_total = response.metadata.duration  # Duración total en segundos
-
-
-            # Definir tamaño de bloque según duración
             if duracion_total <= 20 * 60:
                 tam_bloque = 5 * 60
             elif duracion_total <= 60 * 60:
@@ -81,16 +82,17 @@ class DeepgramPDFTranscriber:
             else:
                 tam_bloque = 30 * 60
 
-            channel = response.results.channels[0]
+            channel = data.get("results", {}).get("channels", [{}])[0]
             transcripciones = []
 
             bloque_actual = -1
-            for alt in channel.alternatives:
-                if hasattr(alt, "paragraphs") and alt.paragraphs and hasattr(alt.paragraphs, "paragraphs"):
-                    for paragraph in alt.paragraphs.paragraphs:
-                        bloque_index = int(paragraph.start // tam_bloque)
+            for alt in channel.get("alternatives", []):
+                paragraphs = (alt.get("paragraphs", {}) or {}).get("paragraphs", [])
+                if paragraphs:
+                    for paragraph in paragraphs:
+                        start = paragraph.get("start", 0)
+                        bloque_index = int(start // tam_bloque)
 
-                        # Si es un nuevo bloque, agregar encabezado
                         if bloque_index != bloque_actual:
                             bloque_actual = bloque_index
                             inicio_bloque = self.segundos_a_hhmmss(bloque_index * tam_bloque).strip("[]")
@@ -99,30 +101,30 @@ class DeepgramPDFTranscriber:
                             ).strip("[]")
                             transcripciones.append(f"\n==== Bloque {inicio_bloque} - {fin_bloque} ====\n")
 
-                        tiempo = self.segundos_a_hhmmss(paragraph.start)
-                        speaker = f"Locutor {paragraph.speaker}"
-                        texto = " ".join([s.text for s in paragraph.sentences])
+                        speaker = f"Locutor {paragraph.get('speaker', 0)}"
+                        sentences = paragraph.get("sentences", [])
+                        texto = " ".join([(s.get("text", "") or "").strip() for s in sentences])
                         transcripciones.append(f"{speaker}: {texto.strip()}")
-
-                elif alt.transcript and alt.transcript.strip():
-                    transcripciones.append(alt.transcript.strip())
+                else:
+                    transcript = (alt.get("transcript") or "").strip()
+                    if transcript:
+                        transcripciones.append(transcript)
 
             if not transcripciones:
-                raise ValueError("⚠ No se detectó voz en el archivo. Verifica que contenga audio hablado.")
+                raise ValueError("No se detectó voz en el archivo. Verifica que contenga audio hablado.")
 
             self.generar_word(nombre_salida, transcripciones, ruta_audio)
 
-            fin = time.time()
-
-
         except Exception as e:
-            print(f"❌ Exception: {e}")
+            print(f"Error en transcripción: {e}")
             raise
 
     def obtener_fecha_creacion(self, ruta_archivo):
         try:
             fecha_creacion = os.path.getctime(ruta_archivo)
-            fecha_str = f" Fecha de creación: {time.strftime('%Y-%m-%d %I:%M:%S %p', time.localtime(fecha_creacion))}"
+            fecha_str = (
+                f" Fecha de creación: {time.strftime('%Y-%m-%d %I:%M:%S %p', time.localtime(fecha_creacion))}"
+            )
             return fecha_str
         except Exception as e:
             return f" Fecha de creación (modificación): Error al obtener la fecha: {e}"
@@ -154,4 +156,3 @@ class DeepgramPDFTranscriber:
             nombre_salida += ".docx"
 
         doc.save(nombre_salida)
-
