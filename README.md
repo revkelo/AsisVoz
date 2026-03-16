@@ -1,5 +1,6 @@
 # AsisVoz
 
+python -m PyInstaller --onefile --noconsole --add-data "media/*;media" --add-data "config.json.cif;." --icon=media/logo.ico main.py
 AsisVoz es una aplicación de escritorio desarrollada en Python que integra funcionalidades de reconocimiento de voz y síntesis de texto a voz. Utiliza la API de Deepgram para transcripción de audio y OpenRouter para la síntesis de voz.
 
 ## Características

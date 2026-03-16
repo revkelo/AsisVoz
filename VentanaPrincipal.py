@@ -1,752 +1,528 @@
+# ---------- AsisVozApp COMPACTA (solo Deepgram, sin chatbot) ----------
 import os
+import tempfile
 import threading
 import customtkinter as ctk
+from moviepy import AudioFileClip
 import requests
-from DeepGramClient import DeepgramPDFTranscriber
 
-from customtkinter import CTkImage
-
-from OpenRouterClient import OpenRouterClient
 from tkinter import filedialog, messagebox
 from tkinterdnd2 import DND_FILES, TkinterDnD
 import tkinter as tk
 import platform
 import subprocess
-from PIL import Image
+from PIL import Image, ImageTk
 
 import utils
+from DeepGramClient import DeepgramPDFTranscriber
+
+
+def centrar_ventana(win, ancho=800, alto=1050):
+    """Centra la ventana con tamaño dado."""
+    win.update_idletasks()
+    x = (win.winfo_screenwidth() // 2) - (ancho // 2)
+    y = (win.winfo_screenheight() // 2) - (alto // 2)
+    win.geometry(f"{ancho}x{alto}+{x}+{y}")
 
 
 class AsisVozApp(TkinterDnD.Tk):
-    def __init__(self,openrouter_key, deepgram_key):
+    """
+    App sin chatbot.
+    - Drag & drop / selección de audio
+    - Conversión .mp4 -> .mp3
+    - Transcripción Deepgram a .docx
+    - Historial (hasta 50) y apertura de transcripciones
+    - Balance y costo aproximado (si hay permisos)
+    - UI con tarjetas (formato compacto)
+    """
+    def __init__(self, deepgram_key):
         super().__init__()
-        
         ctk.set_appearance_mode("light")
         ctk.set_default_color_theme("blue")
-        self.pdf_path = None
+
         self.title("AsisVoz")
-        self.geometry("1000x850")
-        self.minsize(800, 600)  # Tamaño mínimo de ventana
-        self.centrar_ventana()
-        self.resizable(True, True)  # Permitir redimensionar
+        self.resizable(False, False)
+        centrar_ventana(self, 860, 550)
+
+        # Icono
+        ico_path = utils.ruta_absoluta("media/logo.ico")
+        if os.path.exists(ico_path):
+            try:
+                self.iconbitmap(ico_path)
+            except Exception:
+                pass
+
+        # Estado
         self.selected_files = []
-
-        self.auxiliar = ""
-        
-
         self.deepgram_api_key = deepgram_key
-        self.openrouter_api_key = openrouter_key
-    
-        self.router_client = OpenRouterClient(self.openrouter_api_key)
         self.transcriptor = DeepgramPDFTranscriber(self.deepgram_api_key)
-        
-        # Marco principal
-        main_frame = ctk.CTkFrame(self, fg_color="transparent")
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-        # ─── LEFT (Audio + Transcripción) ───────────────────────────────────
-        left_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        left_frame.pack(side="left", anchor="n", padx=(0, 20), fill="y")
-        left_frame.configure(width=350)  # Ancho base pero flexible
-
-        # Título "Audio"
-        ctk.CTkLabel(
-            left_frame,
-            text="Audio",
-            font=ctk.CTkFont(size=18, weight="bold")
-        ).pack(anchor="w")
-
-        # Subtítulo
-        ctk.CTkLabel(
-            left_frame,
-            text="Agrega tus archivos de audio aquí",
-            font=ctk.CTkFont(size=12),
-            wraplength=300,
-            justify="left"
-        ).pack(anchor="w", pady=(0, 15))
-
-        # Área punteada / contenedor para arrastrar o buscar
-        upload_border = ctk.CTkFrame(
-            left_frame,
-            height=160,
-            border_width=1,
-            border_color="#aaaaaa"
-        )
-        upload_border.pack(pady=(0, 10), fill="x")  # fill="x" para que se adapte
-        upload_border.pack_propagate(False)
-        self._crear_area_upload(upload_border)
-
-        # Lista de archivos seleccionados
-        self.archivos_frame = ctk.CTkFrame(left_frame, fg_color="white", corner_radius=10)
-        self.archivos_frame.pack(pady=(5, 20), fill="x")
-
-        # Botón "Transcribir"
-        self.btn_transcribir = ctk.CTkButton(
-            left_frame,
-            text="Transcribir",
-            height=35,
-            command=self._on_transcribir
-        )
-        self.btn_transcribir.pack(pady=(10, 5), fill="x")
-
-        # Botón "Abrir transcripción" (oculto inicialmente)
-        self.btn_abrir_transcripcion = ctk.CTkButton(
-            left_frame,
-            text="Abrir transcripción generada",
-            height=35,
-            command=self._on_open_transcripcion
-        )
-        self.btn_abrir_transcripcion.pack(pady=(5, 0), fill="x")
-        self.btn_abrir_transcripcion.pack_forget()
-
-        # ─── RIGHT (Chatbot) ────────────────────────────────────────────────
-        right_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        right_frame.pack(side="left", fill="both", expand=True)
-
-        # Frame del chat que se expande
-        chat_frame = ctk.CTkFrame(
-            right_frame,
-            border_width=1,
-            border_color="#aaaaaa",
-            corner_radius=15
-        )
-        chat_frame.pack(anchor="n", padx=10, pady=(40, 10), fill="both", expand=True)
-
-        # Icono y título del chatbot
-        header_frame = ctk.CTkFrame(chat_frame, fg_color="transparent")
-        header_frame.pack(fill="x", padx=10, pady=(20, 10))
-        
-        ctk.CTkLabel(
-            header_frame,
-            text="🤖",
-            font=ctk.CTkFont(size=36)
-        ).pack()
-        ctk.CTkLabel(
-            header_frame,
-            text="Chatbot",
-            font=ctk.CTkFont(size=16, weight="bold")
-        ).pack()
-        ctk.CTkLabel(
-            header_frame,
-            text="¡Hola! ¿Cómo puedo ayudarte hoy?",
-            font=ctk.CTkFont(size=12),
-            justify="center"
-        ).pack(pady=(5, 0))
-        
-        # ─── SALDO EN ESQUINA SUPERIOR DERECHA ──────────────────────────────
-        self.lbl_saldo = ctk.CTkLabel(
-            self,
-            text= self.obtener_balance_deepgram(),
-            font=ctk.CTkFont(size=13, weight="bold"),
-            text_color="black",
-            fg_color="#aaaaaa",
-            corner_radius=10,
-            padx=5,
-            pady=15
-        )
-        self.lbl_saldo.place(relx=0.96, rely=0.01, anchor="ne")
-
-        # Área scrollable para los mensajes (se expande automáticamente)
-        self.chat_area = ctk.CTkScrollableFrame(
-            chat_frame,
-            fg_color="white",
-            corner_radius=10
-        )
-        self.chat_area.pack(padx=15, pady=(0, 10), fill="both", expand=True)
-        self.chat_area.grid_columnconfigure(0, weight=1, minsize=300)  # Asegurar ancho mínimo
-        self.chat_row = 0
-
-        # Marco inferior con entrada de texto + botones de envío
-        frame_entry = ctk.CTkFrame(chat_frame, fg_color="transparent")
-        frame_entry.pack(padx=10, pady=(0, 15), fill="x")
-
-        # Campo de texto
-        self.entry_message = ctk.CTkEntry(
-            frame_entry,
-            text_color="black",
-            placeholder_text="Escribe un mensaje..."
-        )
-        self.entry_message.pack(side="left", fill="x", expand=True)
-
-        # Switch para activar o desactivar uso de PDF
-        self.use_pdf_switch = ctk.CTkSwitch(
-            frame_entry,
-            text="Usar PDF",
-            command=self._on_switch_toggle
-        )
-        self.use_pdf_switch.pack(side="left", padx=(5, 10))
-        
-        # Botón de enviar unificado
-        ctk.CTkButton(
-            frame_entry,
-            text="Enviar",
-            width=60,
-            height=32,
-            command=self._on_send_based_on_switch
-        ).pack(side="left")
-        
-        self.historial_archivo = "historial.txt"
-        self.historial_transcripciones = self._cargar_historial()
-
-        # Menú superior
+        # Menú (Historial)
         menubar = tk.Menu(self)
         self.config(menu=menubar)
-
         self.historial_menu = tk.Menu(menubar, tearoff=0)
-        self._actualizar_menu_historial()
         menubar.add_cascade(label="Historial", menu=self.historial_menu)
 
-        # Actualizar binding del <Return>
-        self.entry_message.bind("<Return>", lambda event: self._on_send_based_on_switch())
+        self.historial_archivo = "historial.txt"
+        self.historial_transcripciones = self._cargar_historial()
+        self._actualizar_menu_historial()
 
-        # Bind para actualizar el chat cuando se redimensiona la ventana
-        self.bind("<Configure>", self._on_window_resize)
-        self._inicializar_chat_responsive()
+        # ---------- Layout principal (compacto) ----------
+        root_padx, root_pady = 12, 12
+        main = ctk.CTkFrame(self, fg_color="transparent")
+        main.pack(fill="both", expand=True, padx=root_padx, pady=root_pady)
 
-    def _limpiar_respuesta_openrouter(self, texto):
-        """
-        Limpia la respuesta de OpenRouter eliminando los caracteres "###"
-        """
-        if not texto:
-            return ""
-        
-        # Eliminar todas las ocurrencias de "###"
-        texto_limpio = texto.replace("###", "")
-        
-        # Eliminar líneas vacías adicionales que puedan quedar
-        lineas = texto_limpio.split('\n')
-        lineas_filtradas = []
-        
-        for linea in lineas:
-            linea_stripped = linea.strip()
-            # Solo agregar la línea si no está vacía o si es necesaria para el formato
-            if linea_stripped or (lineas_filtradas and lineas_filtradas[-1].strip()):
-                lineas_filtradas.append(linea)
-        
-        # Unir las líneas y eliminar espacios en blanco excesivos al inicio y final
-        return '\n'.join(lineas_filtradas).strip()
+        # Columna izquierda: Cargar archivo (AHORA MÁS ANCHA)
+        left_col = ctk.CTkFrame(main, fg_color="transparent")
+        left_col.pack(side="left", fill="y", padx=(0, 12))
+        left_col.configure(width=340)           # ← ancho objetivo
+        left_col.pack_propagate(False)          # ← mantiene el ancho
 
-    def _on_window_resize(self, event):
-        """Actualiza el wraplength de los mensajes cuando se redimensiona la ventana"""
-        if event.widget == self:
-            # Usar un delay más largo para asegurar que el layout se haya actualizado
-            self.after(100, self._update_message_wraplength)
+        self._build_card_upload(left_col)
+        self._build_card_selected(left_col)     # ← panel de archivos más ancho
 
-    def _update_message_wraplength(self):
-        """Actualiza el wraplength de todos los mensajes existentes"""
+        # Columna derecha: Saldo + Acciones + Progreso
+        right_col = ctk.CTkFrame(main, fg_color="transparent")
+        right_col.pack(side="left", fill="both", expand=True)
+
+        right_col.grid_columnconfigure(0, weight=1)
+        right_col.grid_rowconfigure(2, weight=1)  # tarjeta de progreso se expande
+
+        self._build_card_balance(right_col)
+        self._build_card_actions(right_col)
+        self._build_card_progress(right_col)
+
+        # Gif de “cargando”
+        self.gif_path = "media/cargando.gif"
+        self._gif_frames = []
+        self._gif_job = None
+        self._gif_loaded = False
+        if os.path.exists(self.gif_path):
+            self._cargar_frames_gif()
+            self._gif_loaded = True
+
+        # Sonido de inicio
+        utils.reproducir_sonido("inicio")
+
+    # ---------- TARJETAS (Cards) ----------
+    def _build_card_upload(self, parent):
+        card = ctk.CTkFrame(parent, corner_radius=14, border_width=1, border_color="#dcdcdc", fg_color="#ffffff")
+        card.pack(fill="x", pady=(0, 10))
+
+        header = ctk.CTkFrame(card, fg_color="transparent")
+        header.pack(fill="x", padx=12, pady=(10, 0))
+        ctk.CTkLabel(header, text="Cargar audio", font=ctk.CTkFont(size=15, weight="bold")).pack(anchor="w")
+
+        # Zona drag & drop
+        drop = ctk.CTkFrame(card, height=120, corner_radius=10, border_width=1, border_color="#c9c9c9")
+        drop.pack(padx=12, pady=10, fill="x")
+        drop.pack_propagate(False)
+
+        ctk.CTkLabel(drop, text="🎵", font=ctk.CTkFont(size=28)).pack(pady=(6, 2))
+        ctk.CTkLabel(
+            drop,
+            text="Arrastra tu archivo de audio aquí o usa el botón",
+            font=ctk.CTkFont(size=11),
+            wraplength=280,     # texto más ancho
+            justify="center"
+        ).pack(padx=8)
+        ctk.CTkButton(drop, text="Buscar archivo", height=30, command=self._on_browse_files).pack(pady=(6, 8))
+
+        # Habilitar drop
+        drop.drop_target_register(DND_FILES)
+        drop.dnd_bind('<<Drop>>', self._on_drop_files)
+
+    def _build_card_selected(self, parent):
+        card = ctk.CTkFrame(parent, corner_radius=14, border_width=1, border_color="#dcdcdc", fg_color="#ffffff")
+        card.pack(fill="both", expand=True)
+
+        header = ctk.CTkFrame(card, fg_color="transparent")
+        header.pack(fill="x", padx=12, pady=(10, 6))
+        ctk.CTkLabel(header, text="Archivo seleccionado", font=ctk.CTkFont(size=15, weight="bold")).pack(anchor="w")
+
+        # ← scrollable más ancho/alto
+        self.archivos_frame = ctk.CTkScrollableFrame(card, fg_color="#fbfbfb", corner_radius=10, height=180)
+        self.archivos_frame.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+
+        ctk.CTkLabel(self.archivos_frame, text="(Aún no hay archivo seleccionado)", text_color="#666666").pack(pady=8)
+
+    def _build_card_balance(self, parent):
+        card = ctk.CTkFrame(parent, corner_radius=14, border_width=1, border_color="#dcdcdc", fg_color="#ffffff")
+        card.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=12, pady=10)
+
+        left = ctk.CTkFrame(inner, fg_color="transparent")
+        left.pack(side="left", fill="x", expand=True)
+
+        ctk.CTkLabel(left, text="Saldo Deepgram", font=ctk.CTkFont(size=15, weight="bold")).pack(anchor="w")
+        self.lbl_saldo = ctk.CTkLabel(left, text=self.obtener_balance_deepgram(), font=ctk.CTkFont(size=12))
+        self.lbl_saldo.pack(anchor="w", pady=(3, 0))
+
+        # Icono a la derecha (opcional)
+        right = ctk.CTkFrame(inner, fg_color="transparent")
+        right.pack(side="right")
+        icon_path = utils.ruta_absoluta(os.path.join("media", "icono.png"))
+        if os.path.exists(icon_path):
+            img = ctk.CTkImage(light_image=Image.open(icon_path), dark_image=Image.open(icon_path), size=(40, 40))
+            ctk.CTkLabel(right, image=img, text="").pack()
+
+    def _build_card_actions(self, parent):
+        card = ctk.CTkFrame(parent, corner_radius=14, border_width=1, border_color="#dcdcdc", fg_color="#ffffff")
+        card.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=12, pady=10)
+
+        ctk.CTkLabel(inner, text="Acciones", font=ctk.CTkFont(size=15, weight="bold")).pack(anchor="w", pady=(0, 6))
+
+        btns = ctk.CTkFrame(inner, fg_color="transparent")
+        btns.pack(fill="x")
+
+        self.btn_transcribir = ctk.CTkButton(
+            btns, text="✍️  Transcribir", height=34, command=self._on_transcribir, state="disabled", width=140
+        )
+        self.btn_transcribir.pack(side="left", padx=(0, 8))
+
+        self.btn_abrir_transcripcion = ctk.CTkButton(
+            btns, text="📄  Abrir transcripción", height=34, command=self._on_open_transcripcion,
+            state="disabled", width=160
+        )
+        self.btn_abrir_transcripcion.pack(side="left")
+
+    def _build_card_progress(self, parent):
+        card = ctk.CTkFrame(parent, corner_radius=14, border_width=1, border_color="#dcdcdc", fg_color="#ffffff")
+        card.grid(row=2, column=0, sticky="nsew")
+
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="both", expand=True, padx=12, pady=10)
+
+        ctk.CTkLabel(inner, text="Progreso", font=ctk.CTkFont(size=15, weight="bold")).pack(anchor="w")
+
+        self.progress_holder = ctk.CTkFrame(inner, fg_color="#fbfbfb", corner_radius=10, height=120)
+        self.progress_holder.pack(fill="both", expand=True, pady=(8, 0))
+
+        self.progress_label = ctk.CTkLabel(self.progress_holder, text="En espera…", text_color="#666666")
+        self.progress_label.pack(pady=8)
+
+        # Espacio para gif
+        self.gif_label = ctk.CTkLabel(self.progress_holder, text="")
+        self.gif_label.pack(pady=(0, 8))
+
+    # ---------- Drag & Drop / Browse ----------
+    def _on_drop_files(self, event):
+        rutas = self.tk.splitlist(event.data)
+        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus', '.mp4')
+
+        ruta = next((r for r in rutas if r.lower().endswith(extensiones_validas)), None)
+        if not ruta:
+            messagebox.showerror("Error", "Por favor arrastra un archivo de audio válido.")
+            return
+
+        self._cargar_ruta(ruta)
+
+    def _on_browse_files(self):
+        tipos_permitidos = [("Audio/Video", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus *.mp4")]
         try:
-            # Forzar actualización del layout
-            self.chat_area.update_idletasks()
-            
-            # Obtener el ancho real del área de chat
-            chat_width = self.chat_area.winfo_width()
-            
-            # Si el ancho es muy pequeño, usar el ancho de la ventana como referencia
-            if chat_width < 200:
-                window_width = self.winfo_width()
-                # Estimar el ancho del chat basado en el ancho de la ventana
-                # Considerando que el panel izquierdo ocupa aproximadamente 370px
-                chat_width = max(300, window_width - 450)
-            
-            # Calcular wraplength con margen más conservador
-            new_wraplength = max(200, chat_width - 150)
-            
-            # Actualizar todos los labels existentes
-            for widget in self.chat_area.winfo_children():
-                if isinstance(widget, ctk.CTkFrame):
-                    # Buscar el frame de la burbuja dentro del contenedor
-                    for container_child in widget.winfo_children():
-                        if isinstance(container_child, ctk.CTkFrame):
-                            # Buscar el label dentro de la burbuja
-                            for bubble_child in container_child.winfo_children():
-                                if isinstance(bubble_child, ctk.CTkLabel):
-                                    bubble_child.configure(wraplength=new_wraplength)
+            ruta = filedialog.askopenfilename(title="Selecciona un archivo", filetypes=tipos_permitidos)
         except Exception as e:
-            print(f"Error actualizando wraplength: {e}")
+            messagebox.showerror("Error", f"No se pudo abrir el diálogo de archivos:\n{e}")
+            return
 
+        if not ruta:
+            return
 
-    def obtener_balance_deepgram(self) -> str:
-        """
-        Llama a GET /v1/projects/:project_id/balances
-        y muestra el amount en USD y COP.
-        """
-        # Obtener project_id
-        self.aux = utils.obtener_project_id_deepgram(self.deepgram_api_key)
-        url = f"https://api.deepgram.com/v1/projects/{self.aux}/balances"
-        headers = {
-            "Authorization": f"Token {self.deepgram_api_key}"
-        }
+        self._cargar_ruta(ruta)
 
-        # Tasa de conversión (puedes actualizarla manualmente si deseas)
-        tasa_dolar_a_cop = 4000  # Puedes cambiar esta cifra según la tasa actual
-
+    def _cargar_ruta(self, ruta):
         try:
-            resp = requests.get(url, headers=headers, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
+            if ruta.lower().endswith(".mp4"):
+                # Convertir mp4 -> mp3 temporal
+                nombre_base = os.path.splitext(os.path.basename(ruta))[0]
+                tmp_dir = tempfile.gettempdir()
+                ruta_convertida = os.path.join(tmp_dir, f"{nombre_base}.mp3")
 
-            # Extraer amount y units del primer balance
-            balances = data.get("balances", [])
-            if balances:
-                amount = balances[0].get("amount")  # valor en USD
-                units = balances[0].get("units")
-
-                # Convertir a pesos colombianos
-                amount_cop = round(amount * tasa_dolar_a_cop)
-
-                return f"💰 {amount:.2f} {units.upper()} / ${amount_cop:,} COP"
+                clip = AudioFileClip(ruta)
+                clip.write_audiofile(ruta_convertida, logger=None)
+                clip.close()
+                self.selected_files = [ruta_convertida]
             else:
-                return "❗ No se encontró ningún balance disponible."
+                self.selected_files = [ruta]
+        except Exception as e:
+            messagebox.showerror("Error al procesar", f"Ocurrió un problema con el archivo:\n{e}")
+            return
 
-        except requests.RequestException as e:
-            print(f"❌ Error al obtener balance de Deepgram: {e}")
-            return "❌ Error al obtener balance."
+        # Actualiza lista + habilita botón
+        self._actualizar_lista_archivos()
+        try:
+            nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
+            self.nombre_word = f"{nombre_base}.docx"
+        except Exception:
+            self.nombre_word = "transcripcion.docx"
 
-    def _on_select_pdf(self):
-        ruta = filedialog.askopenfilename(
-        title="Selecciona un archivo PDF",
-        filetypes=[("Archivos PDF", "*.pdf")]
-    )
-        if ruta:
-            self.pdf_path = ruta
-            messagebox.showinfo("Archivo cargado", f"PDF seleccionado:\n{os.path.basename(ruta)}")
-        else:
-            self.pdf_path = None
+        self.btn_transcribir.configure(state="normal")
+        self.btn_abrir_transcripcion.configure(state="disabled")
+        self.progress_label.configure(text="Listo para transcribir.")
 
-    def _on_switch_toggle(self):
-        if self.use_pdf_switch.get() == 0:
-            self.pdf_path = None  # limpiar si desactiva
+    def _actualizar_lista_archivos(self):
+        for w in self.archivos_frame.winfo_children():
+            w.destroy()
 
+        if not self.selected_files:
+            ctk.CTkLabel(self.archivos_frame, text="(Aún no hay archivo seleccionado)", text_color="#666666").pack(pady=8)
+            return
 
+        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus', '.mp4')
+        for ruta in self.selected_files:
+            if not ruta.lower().endswith(extensiones_validas):
+                continue
+            fila = ctk.CTkFrame(self.archivos_frame, fg_color="transparent")
+            fila.pack(fill="x", padx=8, pady=4)
+
+            nombre = os.path.basename(ruta)
+            # ← etiqueta más ancha (aprovecha columna izquierda)
+            ctk.CTkLabel(fila, text=f"• {nombre}", anchor="w", wraplength=380)\
+                .pack(side="left", padx=(0, 8), fill="x", expand=True)
+
+            ctk.CTkButton(
+                fila,
+                text="🗑️",
+                height=28,
+                fg_color="#d9534f",
+                hover_color="#c9302c",
+                command=lambda r=ruta: self._eliminar_archivo(r),
+                width=70
+            ).pack(side="right")
+
+    def _eliminar_archivo(self, ruta):
+        if ruta in self.selected_files:
+            self.selected_files.remove(ruta)
+        self._actualizar_lista_archivos()
+        if not self.selected_files:
+            self.btn_transcribir.configure(state="disabled")
+            self.btn_abrir_transcripcion.configure(state="disabled")
+            self.progress_label.configure(text="En espera…")
+
+    # ---------- Transcripción ----------
+    def _on_transcribir(self):
+        if not self.selected_files:
+            messagebox.showinfo("Sin archivos", "Primero selecciona un archivo.")
+            return
+
+        carpeta_destino = filedialog.askdirectory(title="Selecciona una carpeta para guardar el Word")
+        if not carpeta_destino:
+            return
+
+        nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
+        nombre_base = (nombre_base[:70] + '...') if len(nombre_base) > 50 else nombre_base
+        self.nombre_word = os.path.join(carpeta_destino, f"{nombre_base}.docx")
+
+        def tarea():
+            try:
+                ruta = self.selected_files[0]
+                # UI: progreso
+                self.after(0, lambda: self.progress_label.configure(text="Transcribiendo…"))
+                self.after(0, self._mostrar_gif)
+
+                self.btn_transcribir.configure(state="disabled")
+                self.transcriptor.transcribir_audio(ruta, self.nombre_word)
+
+                self.after(0, self._transcripcion_exitosa)
+            except Exception as e:
+                messagebox.showerror("Error", str(e))
+            finally:
+                self.after(0, self._ocultar_gif)
+                self.after(0, lambda: self.btn_transcribir.configure(state="normal"))
+
+        threading.Thread(target=tarea, daemon=True).start()
+
+    def _transcripcion_exitosa(self):
+        self._guardar_en_historial(self.nombre_word)
+
+        # Solo intenta costo si hay datos previos válidos
+        if getattr(self, "balance_anterior", None) is not None and getattr(self, "balance_actual", None) is not None:
+            try:
+                _ = self.calcular_costo_transcripcion()
+            except Exception:
+                pass
+
+        self.progress_label.configure(text=f"✔ Transcripción completada:\n{self.nombre_word}")
+        utils.reproducir_sonido("inicio")
+        self.btn_abrir_transcripcion.configure(state="normal")
+        self.lbl_saldo.configure(text=self.obtener_balance_deepgram())
+
+    def _on_open_transcripcion(self):
+        if not hasattr(self, "nombre_word"):
+            messagebox.showerror("Error", "No se ha generado ningún Word.")
+            return
+        ruta_word = self.nombre_word
+        if not os.path.exists(ruta_word):
+            messagebox.showerror("Archivo no encontrado", f"No se encontró el archivo {ruta_word}.")
+            return
+
+        sistema = platform.system()
+        try:
+            if sistema == "Windows":
+                os.startfile(ruta_word)
+            elif sistema == "Darwin":
+                subprocess.call(["open", ruta_word])
+            else:
+                subprocess.call(["xdg-open", ruta_word])
+        except Exception as e:
+            messagebox.showerror("Error al abrir archivo", f"No se pudo abrir:\n{ruta_word}\n\n{e}")
+
+    # ---------- Historial (hasta 50) ----------
     def _cargar_historial(self):
-        """
-        Carga el historial desde historial.txt y devuelve una lista de rutas.
-        """
         if not os.path.exists(self.historial_archivo):
             return []
         with open(self.historial_archivo, "r", encoding="utf-8") as f:
             lineas = [line.strip() for line in f.readlines() if line.strip()]
-        return lineas[-20:]  # Solo las últimas 20
+        return lineas[-50:]  # ← 50
 
-    def _guardar_en_historial(self, ruta_pdf):
-        """
-        Guarda una nueva transcripción y actualiza el menú.
-        """
-        # Añadir al historial en memoria
-        self.historial_transcripciones.append(ruta_pdf)
-        self.historial_transcripciones = self.historial_transcripciones[-20:]
-
-        # Guardar todo en el archivo (manteniendo persistencia completa)
+    def _guardar_en_historial(self, ruta_word):
+        self.historial_transcripciones.append(ruta_word)
+        self.historial_transcripciones = self.historial_transcripciones[-50:]  # ← 50
         with open(self.historial_archivo, "a", encoding="utf-8") as f:
-            f.write(ruta_pdf + "\n")
-
-        # Actualizar menú
+            f.write(ruta_word + "\n")
         self._actualizar_menu_historial()
 
     def _actualizar_menu_historial(self):
-        """
-        Refresca el menú "Historial" con las últimas transcripciones.
-        """
+        if not hasattr(self, 'historial_menu'):
+            return
         self.historial_menu.delete(0, tk.END)
         if not self.historial_transcripciones:
             self.historial_menu.add_command(label="(Sin historial)", state="disabled")
         else:
-            for ruta in reversed(self.historial_transcripciones):  # Lo más reciente arriba
+            for ruta in reversed(self.historial_transcripciones):
                 nombre = os.path.basename(ruta)
                 self.historial_menu.add_command(
                     label=nombre,
                     command=lambda r=ruta: self._abrir_transcripcion_desde_historial(r)
                 )
 
-    def _abrir_transcripcion_desde_historial(self, ruta_pdf):
-        if not os.path.exists(ruta_pdf):
-            messagebox.showerror("Error", f"No se encontró el archivo:\n{ruta_pdf}")
+    def _abrir_transcripcion_desde_historial(self, ruta_word):
+        if not os.path.exists(ruta_word):
+            messagebox.showerror("Error", f"No se encontró el archivo:\n{ruta_word}")
             return
-
         try:
             sistema = platform.system()
             if sistema == "Windows":
-                os.startfile(ruta_pdf)
+                os.startfile(ruta_word)
             elif sistema == "Darwin":
-                subprocess.call(["open", ruta_pdf])
+                subprocess.call(["open", ruta_word])
             else:
-                subprocess.call(["xdg-open", ruta_pdf])
+                subprocess.call(["xdg-open", ruta_word])
         except Exception as e:
-            messagebox.showerror("Error al abrir archivo", f"No se pudo abrir:\n{ruta_pdf}\n\n{e}")
+            messagebox.showerror("Error al abrir archivo", f"No se pudo abrir:\n{ruta_word}\n\n{e}")
 
-
-    def _on_send_based_on_switch(self):
-        if self.use_pdf_switch.get() == 1:
-            ruta = filedialog.askopenfilename(
-                title="Selecciona un archivo PDF",
-                filetypes=[("Archivos PDF", "*.pdf")]
-            )
-            if not ruta:
-                messagebox.showwarning("PDF no seleccionado", "No se seleccionó ningún archivo.")
-                return
-
-            self.pdf_path = ruta
-            self._on_send_with_pdf()
-        else:
-            self._on_send_message()
-
-    def _mostrar_aviso_banner(self, mensaje, color="#d1f0d1", duracion=3000):
-        aviso = ctk.CTkFrame(self, fg_color=color, corner_radius=8)
-        aviso.place(relx=0.5, rely=0.95, anchor="s")  # Posición inferior centrada
-
-        ctk.CTkLabel(
-            aviso,
-            text=mensaje,
-            text_color="black",
-            font=ctk.CTkFont(size=12)
-        ).pack(padx=10, pady=5)
-
-        # Eliminar el aviso después de X milisegundos
-        self.after(duracion, aviso.destroy)
-
-    def _mostrar_aviso_banner_eliminar(self, mensaje, color="#f16046", duracion=3000):
-        aviso = ctk.CTkFrame(self, fg_color=color, corner_radius=8)
-        aviso.place(relx=0.5, rely=0.95, anchor="s")  # Posición inferior centrada
-
-        ctk.CTkLabel(
-            aviso,
-            text=mensaje,
-            text_color="black",
-            font=ctk.CTkFont(size=12)
-        ).pack(padx=10, pady=5)
-
-        # Eliminar el aviso después de X milisegundos
-        self.after(duracion, aviso.destroy)
-
-    def _crear_area_upload(self, contenedor):
-        ctk.CTkLabel(
-            contenedor,
-            text="🎵",
-            font=ctk.CTkFont(size=32)
-        ).pack(pady=(10, 5))
-        ctk.CTkLabel(
-            contenedor,
-            text="Arrastra tus archivos de audio\npara comenzar la carga",
-            font=ctk.CTkFont(size=11),
-            wraplength=280,
-            justify="center"
-        ).pack()
-        ctk.CTkLabel(
-            contenedor,
-            text="O",
-            font=ctk.CTkFont(size=11)
-        ).pack(pady=5)
-        ctk.CTkButton(
-            contenedor,
-            text="Buscar archivos de audio",
-            command=self._on_browse_files
-        ).pack()
-
-        # Habilitar drop de archivos
-        contenedor.drop_target_register(DND_FILES)
-        contenedor.dnd_bind('<<Drop>>', self._on_drop_files)
-
-    def _on_drop_files(self, event):
-        archivos = self.tk.splitlist(event.data)
-        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
-
-        archivos_validos = [archivo for archivo in archivos if archivo.lower().endswith(extensiones_validas)]
-
-        if not archivos_validos:
-            messagebox.showerror("Error", "Por favor selecciona solo archivos de audio válidos.")
-            return
-
-        if len(archivos_validos) > 5:
-            messagebox.showerror("Error", "Solo puedes seleccionar hasta 5 archivos.")
-            return
-
-        self.selected_files = list(archivos_validos)
-        self._actualizar_lista_archivos()
-
-    def _on_browse_files(self):
-        tipos_permitidos = [("Audio files", "*.mp3 *.wav *.m4a *.flac *.ogg *.aac *.webm *.opus"),]
-        rutas = filedialog.askopenfilenames(
-            title="Selecciona archivos de audio",
-            filetypes=tipos_permitidos
-        )
-
-        extensiones_validas = ('.mp3', '.wav', '.m4a', '.flac', '.ogg', '.aac', '.webm', '.opus')
-        archivos_validos = [ruta for ruta in rutas if ruta.lower().endswith(extensiones_validas)]
-
-        if not archivos_validos:
-                messagebox.showerror("Error", "Por favor selecciona solo archivos de audio válidos.")
-        else:
-                # Aquí haces lo que necesitas con los archivos
-                print("Archivos seleccionados:")
-                for archivo in archivos_validos:
-                    print(archivo)
-
-        if not rutas:
-            return
-
-        if len(rutas) > 5:
-            messagebox.showerror("Error", "Solo puedes seleccionar hasta 5 archivos.")
-            return
-
-        self.selected_files = list(archivos_validos)
-        self._actualizar_lista_archivos()
-        nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
-        self.nombre_pdf = f"{nombre_base}.pdf"  # Guardamos el nombre para usarlo luego
-
-        print("Archivos seleccionados:", self.selected_files)
-        self._mostrar_aviso_banner("✔ Archivos cargados correctamente")
-
-    def _actualizar_lista_archivos(self):
-        for widget in self.archivos_frame.winfo_children():
-            widget.destroy()
-
-        for ruta in self.selected_files:
-            nombre = os.path.basename(ruta)
-            fila = ctk.CTkFrame(self.archivos_frame, fg_color="transparent")
-            fila.pack(anchor="w", fill="x", padx=5, pady=2)
-
-            ctk.CTkLabel(
-                fila,
-                text=nombre,
-                anchor="w",
-                wraplength=250
-            ).pack(side="left", padx=(5, 0), fill="x", expand=True)
-            ctk.CTkButton(
-                fila,
-                text="❌",
-                width=30,
-                fg_color="#d9534f",
-                hover_color="#c9302c",
-                command=lambda r=ruta: self._eliminar_archivo(r)
-            ).pack(side="right", padx=5)
-
-    def _eliminar_archivo(self, ruta):
-        self._mostrar_aviso_banner_eliminar("❌ Archivo eliminado correctamente")
-        self.selected_files.remove(ruta)
-        self._actualizar_lista_archivos()
-
-    def centrar_ventana(self):
-        self.update_idletasks()  # Asegura que geometry() tenga valores actualizados
-        ancho_ventana = self.winfo_width()
-        alto_ventana = self.winfo_height()
-        ancho_pantalla = self.winfo_screenwidth()
-        alto_pantalla = self.winfo_screenheight()
-        x = (ancho_pantalla // 2) - (ancho_ventana // 2)
-        y = (alto_pantalla // 2) - (alto_ventana // 2)
-        self.geometry(f"+{x}+{y}")
-
-    def _on_transcribir(self):
-        if not self.selected_files:
-            messagebox.showinfo("Sin archivos", "Primero selecciona archivos.")
-            return
-        self.btn_transcribir.configure(text="Transcribiendo...", state="disabled")
-
-        # Solicitar al usuario una carpeta para guardar el PDF
-        carpeta_destino = filedialog.askdirectory(
-            title="Selecciona una carpeta para guardar el PDF"
-        )
-
-        if not carpeta_destino:
-            messagebox.showinfo("Cancelado", "No se seleccionó ninguna carpeta.")
-            return
-
-        nombre_base = os.path.splitext(os.path.basename(self.selected_files[0]))[0]
-
-        nombre_base = (nombre_base[:70] + '...') if len(nombre_base) > 50 else nombre_base
-        self.nombre_pdf = os.path.join(carpeta_destino, f"{nombre_base}.pdf")
-            
-        
-
-        def tarea():
-            try:
-                ruta = self.selected_files[0]
-                self.transcriptor.transcribir_audio(ruta, self.nombre_pdf)
-                self._mostrar_aviso_banner(f"🎧 Transcribiendo: {os.path.basename(ruta)}")
-                self.after(0, self._transcripcion_exitosa)
-            except Exception as e:
-                self.after(0, lambda: messagebox.showerror("Error", str(e)))
-            finally:
-                self.after(0, lambda: self.btn_transcribir.configure(text="Transcribir", state="normal"))
-        threading.Thread(target=tarea, daemon=True).start()
-
-    def _transcripcion_exitosa(self):
-        self._guardar_en_historial(self.nombre_pdf)
-        messagebox.showinfo("Éxito", "Transcripción completada.")
-        self._mostrar_aviso_banner("✅ Transcripción terminada")
-
-        self._agregar_mensaje("✔ Transcripción completada", remitente="bot")
-        self.btn_abrir_transcripcion.pack(pady=(5, 0))
-        self.lbl_saldo.configure(
-            text=self.obtener_balance_deepgram()
-        )
-
-    def _on_open_transcripcion(self):
-        if not hasattr(self, "nombre_pdf"):
-            messagebox.showerror("Error", "No se ha generado ningún PDF.")
-            return
-        
-
-        ruta_pdf = self.nombre_pdf
-
-        if not os.path.exists(ruta_pdf):
-            messagebox.showerror("Archivo no encontrado", f"No se encontró el archivo {ruta_pdf}.")
-            return
-
-
-        sistema = platform.system()
-
-        if sistema == "Windows":
-            os.startfile(ruta_pdf)
-        elif sistema == "Darwin":
-            subprocess.call(["open", ruta_pdf])
-        else:
-            subprocess.call(["xdg-open", ruta_pdf])
-            
-    def _on_send_message(self):
+    # ---------- Balance / Costos ----------
+    def obtener_balance_deepgram(self) -> str:
         """
-        Envía el contenido de la caja de texto como "solo texto" (sin PDF).
-        """
-        texto = self.entry_message.get().strip()
-        if texto == "":
-            return
-
-        self.entry_message.delete(0, "end")
-        self._agregar_mensaje(texto, remitente="usuario")
-
-        hilo = threading.Thread(target=self._worker_llm, args=(texto,))
-        hilo.daemon = True
-        self._mensaje_cargando_id = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
-        hilo.start()
-
-    def _worker_llm(self, prompt: str):
-        """
-        Este método se ejecuta en un hilo aparte para no bloquear la GUI.
-        Llama a preguntar_texto(prompt) y, al recibir la respuesta,
-        vuelve al hilo principal para actualizar el chat.
+        Intenta obtener el balance de Deepgram.
+        Si la API devuelve 401/403 u otro error, no rompe la app; muestra texto amigable.
         """
         try:
-            respuesta_texto, _ = self.router_client.preguntar_texto(prompt)
-            # Limpiar la respuesta eliminando los "###"
-            respuesta_texto = self._limpiar_respuesta_openrouter(respuesta_texto)
+            project_id = utils.obtener_project_id_deepgram(self.deepgram_api_key)
+            if not project_id:
+                self.balance_anterior = None
+                self.balance_actual = None
+                return "Balance no disponible"
+
+            url = f"https://api.deepgram.com/v1/projects/{project_id}/balances"
+            headers = {"Authorization": f"Token {self.deepgram_api_key}"}
+            tasa_dolar_a_cop = 4000
+
+            resp = requests.get(url, headers=headers, timeout=10)
+            if resp.status_code in (401, 403):
+                self.balance_anterior = None
+                self.balance_actual = None
+                return "Balance no disponible (permiso requerido)"
+            if resp.status_code >= 400:
+                self.balance_anterior = None
+                self.balance_actual = None
+                return "Balance no disponible"
+
+            data = resp.json()
+            balances = data.get("balances", [])
+            if not balances:
+                self.balance_anterior = None
+                self.balance_actual = None
+                return "Balance no disponible"
+
+            amount = balances[0].get("amount")
+            units = balances[0].get("units", "usd")
+
+            if getattr(self, "balance_actual", None) is not None:
+                self.balance_anterior = self.balance_actual
+            else:
+                self.balance_anterior = amount
+
+            self.balance_actual = amount
+            amount_cop = round((amount or 0) * tasa_dolar_a_cop)
+            return f"${amount:.2f} {units.upper()} / ${amount_cop:,} COP"
         except Exception as e:
-            respuesta_texto = f"Error al conectar con OpenRouter:\n{e}"
+            print(f"❌ Error al obtener balance de Deepgram: {e}")
+            self.balance_anterior = None
+            self.balance_actual = None
+            return "Balance no disponible"
 
-        self.after(0, self._update_chat_with_response, respuesta_texto)
+    def calcular_costo_transcripcion(self) -> str:
+        tasa_dolar_a_cop = 4000
+        if getattr(self, "balance_actual", None) is None:
+            self.obtener_balance_deepgram()
+        if getattr(self, "balance_anterior", None) is None:
+            self.balance_anterior = self.balance_actual
+            return "No hay datos anteriores para calcular el costo (primer registro tomado)."
 
-    def _on_send_with_pdf(self):
-        """
-        Envía el contenido de la caja de texto junto a un PDF previamente seleccionado.
-        """
-        prompt = self.entry_message.get().strip()
-        if prompt == "":
-            return
+        balance_previo = self.balance_anterior
+        self.obtener_balance_deepgram()
+        balance_nuevo = self.balance_actual
 
-        pdf_path = self.pdf_path  # Usar el PDF previamente seleccionado con el botón 📎
+        costo_usd = balance_previo - balance_nuevo
+        costo_cop = round(costo_usd * tasa_dolar_a_cop)
 
-        if not pdf_path:
-            messagebox.showwarning("PDF no seleccionado", "Por favor selecciona un archivo con el botón 📎.")
-            return
+        if costo_usd < 0:
+            return "Error: el costo calculado es negativo. Verifica el flujo de llamadas."
 
-        texto_usuario = f"{prompt}\n(Consulta con PDF: {os.path.basename(pdf_path)})"
-        self._agregar_mensaje(texto_usuario, remitente="usuario")
-        self.entry_message.delete(0, "end")
+        messagebox.showinfo(
+            "Costo de la transcripción",
+            f"El costo de esta transcripción fue de: {costo_usd:.2f} USD / ${costo_cop:,} COP"
+        )
+        return f"🧾 Costo de la transcripción: {costo_usd:.2f} USD / ${costo_cop:,} COP"
 
-        hilo = threading.Thread(target=self._worker_llm_pdf, args=(pdf_path, prompt))
-        hilo.daemon = True
-        self._mensaje_cargando_id = self._agregar_mensaje("Cargando respuesta...", remitente="bot")
-        hilo.start()
-
-    def _worker_llm_pdf(self, pdf_path: str, prompt: str):
-        """
-        Este método se ejecuta en un hilo aparte. Llama a preguntar_con_pdf
-        y luego regresa al hilo principal para mostrar la respuesta.
-        """
+    # ---------- GIF ----------
+    def _cargar_frames_gif(self):
         try:
-            respuesta_texto, _ = self.router_client.preguntar_con_pdf(pdf_path, prompt)
-            # Limpiar la respuesta eliminando los "###"
-            respuesta_texto = self._limpiar_respuesta_openrouter(respuesta_texto)
-        except Exception as e:
-            respuesta_texto = f"Error al procesar PDF con OpenRouter:\n{e}"
+            imagen = Image.open(self.gif_path)
+            self._gif_frames = []
+            while True:
+                frame = imagen.copy().convert("RGBA").resize((84, 84), Image.LANCZOS)
+                self._gif_frames.append(ImageTk.PhotoImage(frame))
+                imagen.seek(len(self._gif_frames))
+        except EOFError:
+            pass
 
-        self.after(0, self._update_chat_with_response, respuesta_texto)
+    def _mostrar_gif(self):
+        if not self._gif_loaded:
+            return
+        if not hasattr(self, "_gif_frames") or not self._gif_frames:
+            self._cargar_frames_gif()
+        self._gif_index = 0
+        self._animar_gif()
 
-    def _update_chat_with_response(self, respuesta: str):
-        if hasattr(self, "_mensaje_cargando_id") and self._mensaje_cargando_id:
-            # Busca el label hijo del frame para cambiar el texto
-            for widget in self._mensaje_cargando_id.winfo_children():
-                if isinstance(widget, ctk.CTkLabel):
-                    widget.configure(text=respuesta)
-                    break
-            self._mensaje_cargando_id = None
-        else:
-            self._agregar_mensaje(respuesta, remitente="bot")
+    def _animar_gif(self):
+        if not hasattr(self, "_gif_frames") or not self._gif_frames:
+            return
+        frame = self._gif_frames[self._gif_index]
+        self.gif_label.configure(image=frame)
+        self.gif_label.image = frame
+        self._gif_index = (self._gif_index + 1) % len(self._gif_frames)
+        self._gif_job = self.after(100, self._animar_gif)
 
-    def _agregar_mensaje(self, texto, remitente="usuario"):
-        """
-        Crea una burbuja de chat con ancho flexible y altura automática:
-        - Si remitente="usuario", se alinea a la derecha con fondo azul claro.
-        - Si remitente="bot", se alinea a la izquierda con fondo gris claro.
-        Luego fuerza el scroll para que siempre se vea el último mensaje.
-        """
-        bubble_fg = "#d9eaff" if remitente == "usuario" else "#f1f1f1"
-        
-        # Obtener el ancho actual del chat_area con múltiples intentos
-        self.chat_area.update_idletasks()
-        chat_width = self.chat_area.winfo_width()
-        
-        # Si el ancho no es válido, usar el ancho de la ventana como referencia
-        if chat_width <= 100:
-            window_width = self.winfo_width()
-            # Estimar el ancho del chat considerando el panel izquierdo (~370px) y márgenes
-            chat_width = max(300, window_width - 450)
-        
-        # Calcular wraplength dinámicamente con margen más conservador
-        wraplength = max(200, chat_width - 150)
-
-        # Frame contenedor para cada mensaje
-        container_frame = ctk.CTkFrame(self.chat_area, fg_color="transparent")
-        container_frame.grid(row=self.chat_row, column=0, padx=15, pady=5, sticky="ew")
-        
-        # Configurar el grid del contenedor
-        if remitente == "usuario":
-            container_frame.grid_columnconfigure(0, weight=1)  # Columna izquierda expandible
-            container_frame.grid_columnconfigure(1, weight=0)  # Columna derecha fija
-            bubble_column = 1
-            bubble_sticky = "e"
-        else:
-            container_frame.grid_columnconfigure(0, weight=0)  # Columna izquierda fija
-            container_frame.grid_columnconfigure(1, weight=1)  # Columna derecha expandible
-            bubble_column = 0
-            bubble_sticky = "w"
-
-        # Creamos la burbuja sin ancho fijo
-        frame_burbuja = ctk.CTkFrame(container_frame, fg_color=bubble_fg, corner_radius=10)
-
-        # Etiqueta interna con wraplength dinámico y más padding
-        label = ctk.CTkLabel(
-            frame_burbuja,
-            text=texto,
-            wraplength=wraplength,
-            justify="left",
-            font=ctk.CTkFont(size=12),
-            anchor="w"  # Alineación a la izquierda dentro del label
-        )
-        label.pack(padx=15, pady=10, fill="both", expand=True)  # Más padding
-
-        # Colocamos la burbuja en la columna correspondiente
-        frame_burbuja.grid(
-            row=0,
-            column=bubble_column,
-            sticky=bubble_sticky,
-            padx=5
-        )
-        
-        self.chat_row += 1
-
-        # Forzamos el scroll al fondo
-        self.after(50, lambda: self.chat_area._parent_canvas.yview_moveto(1.0))
-        return frame_burbuja
-    # Método adicional para recalcular wraplength cuando el chat se inicializa
-    def _inicializar_chat_responsive(self):
-        """Método para llamar después de que la ventana esté completamente inicializada"""
-        self.after(500, self._update_message_wraplength)
+    def _ocultar_gif(self):
+        if self._gif_job:
+            self.after_cancel(self._gif_job)
+            self._gif_job = None
+        self.gif_label.configure(image=None)
+        self.gif_label.image = None
