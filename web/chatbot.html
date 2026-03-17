@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AsisVoz - Chatbot</title>
+  <link rel="icon" type="image/x-icon" href="../media/logo.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="bg-shape bg-a"></div>
+  <div class="bg-shape bg-b"></div>
+
+  <main class="app">
+    <nav class="top-nav">
+      <button type="button" class="ghost" onclick="history.back()">Atras</button>
+      <a href="./configurar.html">Configuracion</a>
+      <a href="./dashboard.html">Dashboard</a>
+      <a href="./transcripcion.html">Transcripcion</a>
+      <a href="./chatbot.html" class="active">Chatbot</a>
+    </nav>
+
+    <section class="hero">
+      <img class="hero-logo" src="../media/icono.png" alt="AsisVoz logo">
+      <p class="tag">AsisVoz</p>
+      <h1>Modulo de Chatbot</h1>
+      <p class="sub">OpenRouter desde frontend con tu llave local.</p>
+    </section>
+
+    <section class="grid">
+      <article class="card card-wide">
+        <div class="row-between">
+          <h2>Conversacion</h2>
+          <div class="field-row small">
+            <input id="modelInput" type="text" value="openai/gpt-4o-mini" placeholder="Modelo OpenRouter">
+            <button id="clearChatBtn" class="ghost">Limpiar chat</button>
+          </div>
+        </div>
+        <div id="chatBox" class="chat-box"></div>
+        <div class="field-row">
+          <input id="chatInput" type="text" placeholder="Escribe un mensaje">
+          <button id="sendBtn">Enviar</button>
+        </div>
+        <p id="chatStatus" class="status"></p>
+      </article>
+    </section>
+  </main>
+
+  <script src="./js/common.js"></script>
+  <script src="./js/chatbot.js"></script>
+</body>
+</html>

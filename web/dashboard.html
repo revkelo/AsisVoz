@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AsisVoz - Dashboard</title>
+  <link rel="icon" type="image/x-icon" href="../media/logo.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="dashboard-page">
+  <main class="desktop-app">
+    <section class="dashboard-main">
+      <div class="dashboard-head">
+        <div class="chat-logo-wrap dash-brand">
+          <img src="../media/icono.png" alt="AsisVoz logo">
+          <div>
+            <div class="brand-title-row">
+              <button type="button" class="ghost tiny-btn" onclick="history.back()">Atras</button>
+              <h3>Panel AsisVoz</h3>
+            </div>
+            <p>Transcriptor + Chatbot en una sola vista</p>
+          </div>
+        </div>
+        <div class="balance-group">
+          <label class="theme-switch" for="themeToggle">
+            <input id="themeToggle" type="checkbox">
+            <span class="theme-slider"></span>
+            <span class="theme-label">Modo oscuro</span>
+          </label>
+          <div id="balancePill" class="balance-pill">Balance no disponible en navegador</div>
+          <p class="balance-help">Deepgram bloquea este endpoint por CORS en frontend puro.</p>
+        </div>
+      </div>
+
+      <div class="tab-bar">
+        <button id="tabTranscriptor" class="tab-btn active">Transcriptor</button>
+        <button id="tabChatbot" class="tab-btn">Chatbot</button>
+      </div>
+
+      <section id="panelTranscriptor" class="tab-panel active">
+        <article class="card panel-shell">
+          <div class="panel-sidebar">
+            <h2>Transcripcion</h2>
+            <p class="muted">Carga audio y genera Word.</p>
+            <input id="audioInput" type="file" accept=".mp3,.wav,.m4a,.flac,.ogg,.aac,.webm,.opus,.mp4">
+            <div class="file-chip">
+              <span id="selectedFileName">Sin archivo cargado</span>
+            </div>
+            <div class="field-row">
+              <button id="clearFileBtn" class="ghost">Limpiar</button>
+              <button id="transcribeBtn" class="plain-btn btn-link">Transcribir</button>
+            </div>
+            <img id="transcribeLoader" class="loader-gif hidden" src="../media/cargando.gif" alt="Cargando">
+            <p id="transcribeStatus" class="status"></p>
+          </div>
+          <div class="panel-main">
+            <div class="panel-main-head">
+              <h3>Actividad de transcripciones</h3>
+            </div>
+            <ul id="historyList" class="history history-chatlike"></ul>
+          </div>
+        </article>
+      </section>
+
+      <section id="panelChatbot" class="tab-panel">
+        <article class="card panel-shell">
+          <div class="panel-sidebar">
+            <h2>Chatbot</h2>
+            <p class="muted">Interfaz estilo chat.</p>
+            <div class="chat-tools vertical-tools">
+              <select id="modelSelect">
+                <option value="">Cargando modelos free...</option>
+              </select>
+              <button id="reloadModelsBtn" class="ghost tiny-btn">Recargar modelos</button>
+              <button id="clearChatBtn" class="ghost tiny-btn">Limpiar chat</button>
+            </div>
+            <p id="chatStatus" class="status"></p>
+          </div>
+          <div class="panel-main">
+            <div id="chatBox" class="chat-feed chatgpt-feed"></div>
+            <div class="chat-compose">
+              <div id="chatFileChip" class="attach-chip-card hidden">
+                <div class="attach-chip-icon">📄</div>
+                <div class="attach-chip-text">
+                  <strong id="chatFileName"></strong>
+                </div>
+                <button id="clearChatFileBtn" class="close-chip-btn" type="button">Quitar archivo</button>
+              </div>
+
+              <textarea id="chatInput" rows="2" placeholder="Escribe tu mensaje"></textarea>
+
+              <div class="compose-toolbar">
+                <div class="compose-left">
+                  <button id="attachMenuBtn" class="icon-circle-btn" type="button">+</button>
+                  <div id="attachMenu" class="attach-menu hidden">
+                    <button id="attachFileAction" type="button">Agregar archivos</button>
+                  </div>
+                </div>
+                <div class="compose-right">
+                  <button id="sendBtn" class="send-circle-btn" type="button">↑</button>
+                </div>
+              </div>
+
+              <input id="chatFileInput" class="hidden-file-input" type="file" accept=".pdf,.docx,.txt">
+            </div>
+            <p id="chatFileInfo" class="muted"></p>
+          </div>
+        </article>
+      </section>
+
+      <footer class="dashboard-footer">
+        <span>AsisVoz</span>
+        <span>Transcriptor + Chatbot</span>
+        <span id="dashboardYear"></span>
+      </footer>
+
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://unpkg.com/mammoth@1.8.0/mammoth.browser.min.js"></script>
+  <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+  <script src="./js/common.js?v=4"></script>
+  <script src="./js/dashboard.js?v=4"></script>
+  <script>
+    document.getElementById("dashboardYear").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

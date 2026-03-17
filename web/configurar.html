@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AsisVoz - Configurar</title>
+  <link rel="icon" type="image/x-icon" href="../media/logo.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="bg-shape bg-a"></div>
+  <div class="bg-shape bg-b"></div>
+
+  <main class="app app-config">
+    <section class="hero hero-centered">
+      <div class="hero-logo-wrap">
+        <img class="hero-logo" src="../media/logo.ico" alt="AsisVoz logo">
+      </div>
+      <p class="tag">AsisVoz</p>
+      <h1>Configuracion Inicial</h1>
+      <p class="sub">Registra licencia y configura Deepgram + OpenRouter.</p>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>1. Licencia</h2>
+        <p class="muted">Ingresa tu licencia para activar la plataforma.</p>
+        <div class="field-row">
+          <input id="licenseInput" type="text" placeholder="Clave de licencia">
+          <button id="saveLicenseBtn">Registrar</button>
+        </div>
+        <p id="licenseStatus" class="status"></p>
+      </article>
+
+      <article class="card">
+        <h2>2. Llaves API</h2>
+        <p class="muted">Deepgram se valida con transcripcion de prueba y OpenRouter con su endpoint key.</p>
+        <div class="stack">
+          <div class="field-row">
+            <input id="deepgramInput" type="password" placeholder="Deepgram API key">
+            <button id="saveDeepgramBtn">Guardar</button>
+          </div>
+          <p id="deepgramStatus" class="status"></p>
+
+          <div class="field-row">
+            <input id="openrouterInput" type="password" placeholder="OpenRouter API key">
+            <button id="saveOpenrouterBtn">Guardar</button>
+          </div>
+          <p id="openrouterStatus" class="status"></p>
+        </div>
+      </article>
+
+      <article class="card card-wide">
+        <div class="row-between">
+          <div>
+            <h2>3. Ingresar al Dashboard</h2>
+            <p class="muted">Se habilita cuando licencia y llaves esten correctas.</p>
+          </div>
+          <a id="goDashboardBtn" class="btn-link disabled-link" href="./dashboard.html">Abrir Dashboard</a>
+        </div>
+      </article>
+    </section>
+
+    <footer class="app-footer">
+      <span>AsisVoz</span>
+      <span>Transcripcion + Chatbot</span>
+      <span id="footerYear"></span>
+    </footer>
+  </main>
+
+  <script src="./js/common.js"></script>
+  <script src="./js/config.js"></script>
+  <script>
+    document.getElementById("footerYear").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

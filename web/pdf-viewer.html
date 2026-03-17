@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AsisVoz - Vista Previa PDF</title>
+  <link rel="icon" type="image/x-icon" href="../media/logo.ico">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="dashboard-page">
+  <main class="app" style="margin-top:16px;">
+    <section class="card">
+      <div class="row-between">
+        <h2>Vista previa PDF</h2>
+        <div class="history-actions">
+          <a id="downloadPdfLink" class="btn-link tiny-btn hidden" href="#" download="transcripcion.pdf">Descargar PDF</a>
+          <button id="closeBtn" class="ghost tiny-btn">Cerrar</button>
+        </div>
+      </div>
+      <iframe id="pdfFrame" title="PDF preview"></iframe>
+      <p id="emptyMsg" class="muted hidden">No hay datos para mostrar. Cierra esta ventana y vuelve a intentarlo.</p>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script>
+    const pdfFrame = document.getElementById("pdfFrame");
+    const downloadPdfLink = document.getElementById("downloadPdfLink");
+    const emptyMsg = document.getElementById("emptyMsg");
+    const closeBtn = document.getElementById("closeBtn");
+
+    closeBtn.addEventListener("click", () => window.close());
+
+    function buildPdfDoc(sourceName, lines) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const margin = 40;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const maxWidth = pageWidth - margin * 2;
+      let y = margin;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("Transcripcion de audio", margin, y);
+      y += 24;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(`Archivo: ${sourceName}`, margin, y);
+      y += 14;
+      doc.text(`Fecha: ${new Date().toLocaleString("es-CO")}`, margin, y);
+      y += 20;
+
+      doc.setFontSize(11);
+      for (const line of lines) {
+        const pieces = doc.splitTextToSize(line || " ", maxWidth);
+        for (const piece of pieces) {
+          if (y > pageHeight - margin) {
+            doc.addPage();
+            y = margin;
+          }
+          doc.text(piece, margin, y);
+          y += 15;
+        }
+      }
+      return doc;
+    }
+
+    (function init() {
+      const raw = sessionStorage.getItem("asisvoz_pdf_preview");
+      if (!raw) {
+        emptyMsg.classList.remove("hidden");
+        return;
+      }
+
+      try {
+        const data = JSON.parse(raw);
+        const doc = buildPdfDoc(data.sourceName || "audio", data.lines || []);
+        const blob = doc.output("blob");
+        const blobUrl = URL.createObjectURL(blob);
+        pdfFrame.src = blobUrl;
+        downloadPdfLink.href = blobUrl;
+        downloadPdfLink.classList.remove("hidden");
+      } catch {
+        emptyMsg.classList.remove("hidden");
+      }
+    })();
+  </script>
+</body>
+</html>

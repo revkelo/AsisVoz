@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AsisVoz - Transcripcion</title>
+  <link rel="icon" type="image/x-icon" href="../media/logo.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="bg-shape bg-a"></div>
+  <div class="bg-shape bg-b"></div>
+
+  <main class="app">
+    <nav class="top-nav">
+      <button type="button" class="ghost" onclick="history.back()">Atras</button>
+      <a href="./configurar.html">Configuracion</a>
+      <a href="./dashboard.html">Dashboard</a>
+      <a href="./transcripcion.html" class="active">Transcripcion</a>
+      <a href="./chatbot.html">Chatbot</a>
+    </nav>
+
+    <section class="hero">
+      <img class="hero-logo" src="../media/icono.png" alt="AsisVoz logo">
+      <p class="tag">AsisVoz</p>
+      <h1>Modulo de Transcripcion</h1>
+      <p class="sub">Deepgram directo desde frontend, sin backend.</p>
+    </section>
+
+    <section class="grid">
+      <article class="card card-wide">
+        <div class="row-between">
+          <h2>Transcribir archivo</h2>
+          <button id="balanceBtn" class="ghost">Consultar saldo</button>
+        </div>
+        <p id="balanceText" class="muted">Saldo: no consultado</p>
+        <div class="upload">
+          <input id="audioInput" type="file" accept=".mp3,.wav,.m4a,.flac,.ogg,.aac,.webm,.opus,.mp4">
+          <button id="transcribeBtn">Transcribir ahora</button>
+        </div>
+        <p id="transcribeStatus" class="status"></p>
+        <a id="downloadLink" class="download hidden" href="#">Descargar otra vez</a>
+      </article>
+
+      <article class="card card-wide">
+        <h2>Historial local (50)</h2>
+        <ul id="historyList" class="history"></ul>
+      </article>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+  <script src="./js/common.js"></script>
+  <script src="./js/transcripcion.js"></script>
+</body>
+</html>

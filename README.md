@@ -54,6 +54,34 @@ AsisVoz es una aplicación de escritorio desarrollada en Python que integra func
 
 2. La interfaz gráfica se abrirá, permitiéndote interactuar con el asistente de voz.
 
+## Uso Web (Solo JavaScript, sin backend)
+
+La carpeta `web/` funciona 100% en frontend:
+- Licencia local (localStorage)
+- API key de Deepgram local (localStorage)
+- API key de OpenRouter local (localStorage)
+- Pagina de inicio/configuracion separada
+- Dashboard separado con modulos
+- Transcripcion directa contra Deepgram desde el navegador
+- Generacion de `.docx` en el cliente
+- Historial local (ultimas 50 transcripciones)
+- Chatbot directo con OpenRouter
+
+### Ejecucion
+
+1. Inicia servidor estatico (ejemplo):
+
+   ```bash
+   python -m http.server 5500
+   ```
+
+2. Abre `http://127.0.0.1:5500/web/index.html`.
+3. En `index.html`: clic en **Iniciar Configuracion**.
+4. En `configurar.html`: registra licencia + Deepgram key + OpenRouter key.
+5. En `dashboard.html`: usa Transcripcion y Chatbot en la misma pantalla.
+
+Nota: como no hay backend, la API key queda en el navegador del usuario.
+
 ## Estructura del Proyecto
 
 - `main.py`: Archivo principal que inicia la aplicación.
