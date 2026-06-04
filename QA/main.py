@@ -15,13 +15,15 @@ from fpdf import FPDF
 # ----------------------------
 # CONFIGURACIONES DE API
 # ----------------------------
-DEEPGRAM_API_KEY    = "9e231f7aaa5b8724a3cd852ef37774878750c957"
-# Token de proyecto para consultar balances (ejemplo tomado de tu snippet)
-DEEPGRAM_PROJECT_ID = "71615eba-db4b-4be4-9d57-f0775a3c9311"
+DEEPGRAM_API_KEY    = os.getenv("DEEPGRAM_API_KEY")
+DEEPGRAM_PROJECT_ID = os.getenv("DEEPGRAM_PROJECT_ID")
 
-
-OPENROUTER_API_KEY  = "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"
+OPENROUTER_API_KEY  = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_URL      = "https://openrouter.ai/api/v1/chat/completions"
+
+if not DEEPGRAM_API_KEY or not OPENROUTER_API_KEY:
+    print("ERROR: Define DEEPGRAM_API_KEY y OPENROUTER_API_KEY en un archivo .env o como variables de entorno.")
+    sys.exit(1)
 
 # ----------------------------
 # FUNCIONES AUXILIARES DE DEEPGRAM
