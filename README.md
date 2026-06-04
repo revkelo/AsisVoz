@@ -1,78 +1,99 @@
 # AsisVoz
 
-python -m PyInstaller --onefile --noconsole --add-data "media/*;media" --add-data "config.json.cif;." --icon=media/logo.ico main.py
-AsisVoz es una aplicación de escritorio desarrollada en Python que integra funcionalidades de reconocimiento de voz y síntesis de texto a voz. Utiliza la API de Deepgram para transcripción de audio y OpenRouter para la síntesis de voz.
+App de escritorio para **transcripción de audio y video con IA**. Soporta drag & drop, genera PDF y DOCX con timestamps y diarización de hablantes, e incluye un módulo de preguntas sobre la transcripción usando DeepSeek vía OpenRouter.
 
-## Características
+## Funcionalidades
 
-- Reconocimiento de voz en tiempo real.
-- Conversión de texto a voz utilizando OpenRouter.
-- Interfaz gráfica de usuario (GUI) desarrollada con Tkinter.
-- Configuración de claves API para Deepgram y OpenRouter.
+- **Transcripción** de archivos de audio y video con Deepgram (STT)
+- **Drag & drop** — arrastra el archivo directamente a la ventana
+- **Diarización** — identifica y separa hablantes (`Speaker 0`, `Speaker 1`...)
+- **Exporta a PDF y DOCX** con timestamps `[HH:MM:SS]` por segmento
+- **Módulo QA** — transcribe y luego hace preguntas al documento con DeepSeek
+- **Fallback automático** entre modelos de OpenRouter ante errores 429
+- **Claves API cifradas** en `config.json.cif` — nunca en texto plano
+- **Ejecutable .exe** compilado con PyInstaller (Windows)
 
-## Requisitos
+## Stack
 
-- Python 3.8 o superior.
-- Bibliotecas de Python:
-  - `tkinter`
-  - `deepgram`
-  - `openrouter`
-  - Otras dependencias especificadas en el archivo `requirements.txt`.
+- **Python 3.11+**
+- [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) — GUI moderna
+- [TkinterDnD2](https://github.com/pmgagne/tkinterdnd2) — drag & drop
+- [Deepgram SDK](https://developers.deepgram.com/) — speech-to-text
+- [OpenRouter](https://openrouter.ai/) — LLM (DeepSeek R1)
+- [MoviePy](https://zulko.github.io/moviepy/) — extracción de audio de video
+- [fpdf2](https://py-pdf.github.io/fpdf2/) — generación de PDF
+- [python-docx](https://python-docx.readthedocs.io/) — generación de DOCX
 
 ## Instalación
 
-1. Clona el repositorio:
+```bash
+git clone https://github.com/revkelo/AsisVoz.git
+cd AsisVoz
+pip install -r requirements.txt
+```
 
-   ```bash
-   git clone https://github.com/revkelo/AsisVoz.git
-   cd AsisVoz
-   ```
+## Configuración de claves API
 
-2. Instala las dependencias:
+Ejecutar el asistente de configuración al primer uso:
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+python VentanaKeys.py
+```
 
-3. Configura tus claves API:
-   - Obtén una clave API de Deepgram y otra de OpenRouter.
-   - Cifra tus claves utilizando el script `VentanaKeys.py`:
+Esto cifra y guarda tus claves en `config.json.cif`. Necesitas:
+- **Deepgram API Key** — [console.deepgram.com](https://console.deepgram.com)
+- **OpenRouter API Key** — [openrouter.ai/keys](https://openrouter.ai/keys)
 
-     ```bash
-     python VentanaKeys.py
-     ```
-
-   - Esto generará un archivo `config.json.cif` con las claves cifradas.
+> Las claves se almacenan cifradas localmente. Nunca se suben al repositorio.
 
 ## Uso
 
-1. Ejecuta la aplicación:
+```bash
+python main.py
+```
 
-   ```bash
-   python main.py
-   ```
+1. Arrastra un archivo de audio/video a la ventana (o usa el selector)
+2. La app transcribe con Deepgram, separando hablantes con timestamps
+3. Exporta el resultado como `.pdf` y `.docx`
 
-2. La interfaz gráfica se abrirá, permitiéndote interactuar con el asistente de voz.
+### Módulo QA (CLI)
 
-## Estructura del Proyecto
+Transcribe un audio y luego haz preguntas sobre el contenido:
 
-- `main.py`: Archivo principal que inicia la aplicación.
-- `VentanaPrincipal.py`: Contiene la lógica de la interfaz gráfica.
-- `VentanaKeys.py`: Permite cifrar las claves API.
-- `DeepGramClient.py`: Módulo para interactuar con la API de Deepgram.
-- `OpenRouterClient.py`: Módulo para interactuar con la API de OpenRouter.
-- `config.json.cif`: Archivo que almacena las claves API cifradas.
-- `requirements.txt`: Lista de dependencias de Python.
+```bash
+cd QA
+# Configurar DEEPGRAM_API_KEY y OPENROUTER_API_KEY en .env
+cp .env.example .env
+python main.py
+```
 
-## Contribuciones
+## Estructura
 
-Las contribuciones son bienvenidas. Si deseas colaborar, por favor sigue estos pasos:
+```
+AsisVoz/
+├── main.py                # Punto de entrada + sistema de licencias
+├── VentanaPrincipal.py    # GUI principal (CustomTkinter + drag & drop)
+├── DeepGramClient.py      # Transcripción STT + generación PDF/DOCX
+├── OpenRouterClient.py    # Chat IA con fallback entre modelos DeepSeek
+├── VentanaKeys.py         # Cifrado y gestión de API keys
+├── utils.py               # Utilidades compartidas
+├── requirements.txt
+└── QA/
+    ├── main.py            # CLI: transcripción + Q&A sobre el documento
+    └── .env.example
+```
 
-1. Haz un fork del repositorio.
-2. Crea una nueva rama para tu característica o corrección de error.
-3. Realiza tus cambios y haz commit.
-4. Envía un pull request describiendo tus cambios.
+## Compilar ejecutable (Windows)
 
-## Licencia
+```bash
+python -m PyInstaller --onefile --noconsole \
+  --add-data "media/*;media" \
+  --add-data "config.json.cif;." \
+  --icon=media/logo.ico main.py
+```
 
-Este proyecto está bajo la Licencia MIT. Consulta el archivo `LICENSE` para más detalles.
+El `.exe` queda en `dist/main.exe`.
+
+---
+
+Desarrollado por **Kevin Gonzalez**
